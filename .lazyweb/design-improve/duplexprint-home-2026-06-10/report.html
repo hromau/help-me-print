@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DuplexPrint Design Improve</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f4efe8;
+        --ink: #1f1712;
+        --muted: #6b5d53;
+        --line: rgba(31, 23, 18, 0.12);
+        --card: rgba(255, 252, 248, 0.92);
+        --accent: #0e6f77;
+        --warm: #c56a31;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Avenir Next", "Segoe UI", sans-serif;
+        background:
+          radial-gradient(circle at top left, rgba(197, 106, 49, 0.12), transparent 30%),
+          linear-gradient(180deg, #f7f1e8 0%, #efe6d9 100%);
+        color: var(--ink);
+      }
+      main {
+        width: min(1160px, calc(100vw - 48px));
+        margin: 32px auto 64px;
+      }
+      .hero, .section, .ref {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        box-shadow: 0 20px 60px rgba(87, 62, 37, 0.08);
+      }
+      .hero, .section { padding: 28px; margin-bottom: 20px; }
+      .eyebrow {
+        margin: 0 0 10px;
+        color: var(--warm);
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      h1, h2, h3, p { margin-top: 0; }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+      }
+      .ref-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+      }
+      .idea {
+        padding: 20px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: rgba(255,255,255,0.72);
+      }
+      .idea strong { display: block; margin-bottom: 8px; }
+      .ref img {
+        width: 100%;
+        display: block;
+        border-radius: 18px 18px 0 0;
+        aspect-ratio: 4 / 3;
+        object-fit: cover;
+        border-bottom: 1px solid var(--line);
+      }
+      .ref-copy { padding: 16px; }
+      ul { margin: 0; padding-left: 18px; }
+      li { margin-bottom: 10px; }
+      a { color: var(--accent); }
+      @media (max-width: 900px) {
+        .grid, .ref-grid { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="hero">
+        <p class="eyebrow">Lazyweb Design Improve</p>
+        <h1>DuplexPrint desktop screen critique</h1>
+        <p>
+          The current screen is usable but visually reads as a generic white-card admin panel.
+          For this product, that is the wrong emotional frame. DuplexPrint is not a dashboard.
+          It is a guided physical task assistant. The UI should feel like a focused print ritual:
+          load document, confirm printer, run pass 1, reload paper, run pass 2.
+        </p>
+      </section>
+
+      <section class="section">
+        <h2>What is weak right now</h2>
+        <ul>
+          <li>The page has no clear primary moment. The eye bounces between four equal white cards instead of locking onto one guided action.</li>
+          <li>The left sidebar spends too much width on passive metadata while the main action area feels underpowered.</li>
+          <li>The tone is neither tool-like nor premium. Beige background plus generic rounded cards reads like a template rather than a deliberate utility.</li>
+          <li>The workflow lacks visible progression. For a duplex-print task, step state is core UX, not secondary copy.</li>
+          <li>The printer setup and document selection should feel like inputs to a machine, not like content blocks in a landing page.</li>
+        </ul>
+      </section>
+
+      <section class="section">
+        <h2>Recommended direction</h2>
+        <div class="grid">
+          <article class="idea">
+            <strong>1. Replace the “dashboard” with a command deck</strong>
+            Collapse the page into one dominant central surface: a large workflow card with step chips
+            for `Document`, `Printer`, `Pass 1`, `Reload`, `Pass 2`. Keep secondary metadata in a slim rail.
+          </article>
+          <article class="idea">
+            <strong>2. Use a stronger visual hierarchy</strong>
+            Make the selected PDF and printer feel like loaded machine state: file badge, printer badge,
+            page count, learned-profile status. The CTA should be visually inevitable, not just another blue pill.
+          </article>
+          <article class="idea">
+            <strong>3. Introduce progress as the product metaphor</strong>
+            Use a horizontal stepper or a vertical numbered sequence with active/inactive states.
+            DuplexPrint is fundamentally procedural, so the interface should show procedural confidence.
+          </article>
+          <article class="idea">
+            <strong>4. Tighten the palette and surfaces</strong>
+            Drop the soft landing-page cream look. Move toward warm paper tones plus darker ink, with one industrial accent color and sharper contrast.
+          </article>
+          <article class="idea">
+            <strong>5. Make the learning wizard feel intentional</strong>
+            The top-sheet question should become a focused intervention card or modal-like panel with a visual paper-stack hint, not a third equal column.
+          </article>
+          <article class="idea">
+            <strong>6. Give the empty state a product promise</strong>
+            Before the first job starts, show a confident promise: “We’ll learn this printer once and remember it.”
+            That differentiates the app from generic print utilities immediately.
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>References used</h2>
+        <p>
+          I filtered for references whose <code>visionDescription</code> directly supported the changes:
+          upload-first flows, guided onboarding surfaces, and explicit wizard progression.
+        </p>
+        <div class="ref-grid">
+          <article class="ref">
+            <img src="./references/iscanner-upload-flow.png" alt="iScanner upload flow reference" />
+            <div class="ref-copy">
+              <h3>iScanner</h3>
+              <p>Useful because the screen centers one obvious action: select a file and move to the next procedural step.</p>
+              <p><a href="https://iscanner.com/pdf-black-and-white/">Open source page</a></p>
+            </div>
+          </article>
+          <article class="ref">
+            <img src="./references/userpilot-onboarding-dashboard.png" alt="Userpilot onboarding reference" />
+            <div class="ref-copy">
+              <h3>Userpilot</h3>
+              <p>Useful because it organizes setup and guidance as one coherent system instead of scattering importance across equal cards.</p>
+              <p><a href="https://userpilot.com/product/user-engagement/">Open source page</a></p>
+            </div>
+          </article>
+          <article class="ref">
+            <img src="./references/chameleon-wizard.png" alt="Chameleon wizard reference" />
+            <div class="ref-copy">
+              <h3>Chameleon</h3>
+              <p>Useful because the wizard framing makes a sequence feel like one guided path rather than several disconnected panels.</p>
+              <p><a href="https://www.chameleon.io/benchmark-report">Open source page</a></p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Concrete redesign for DuplexPrint</h2>
+        <ul>
+          <li>Left rail: app identity, learned-printer trust message, small printer profile list.</li>
+          <li>Main header: file name, printer badge, profile status, and a compact 5-step progress strip.</li>
+          <li>Main body: one large “action deck” card with the current step, instructions, and the single primary button.</li>
+          <li>Supporting panels: document summary and printer settings as compact chips, not large content blocks.</li>
+          <li>When printing starts: replace the setup card with a pass-specific card and a paper-handling illustration or mini diagram.</li>
+        </ul>
+      </section>
+    </main>
+  </body>
+  </html>
