@@ -1,0 +1,97 @@
+name: Publish Homebrew Cask
+
+on:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version without leading v
+        required: true
+      dmg_url:
+        description: DMG download URL
+        required: true
+      sha256:
+        description: DMG sha256
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  update-cask:
+    name: Update tap repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check configuration
+        id: config
+        env:
+          TAP_REPOSITORY: ${{ vars.HOMEBREW_TAP_REPOSITORY }}
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          if [ -n "$TAP_REPOSITORY" ] && [ -n "$TAP_TOKEN" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Homebrew publishing is skipped because HOMEBREW_TAP_REPOSITORY or HOMEBREW_TAP_TOKEN is missing."
+          fi
+      - name: Resolve release metadata
+        if: steps.config.outputs.enabled == 'true'
+        id: meta
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_DMG_URL: ${{ inputs.dmg_url }}
+          INPUT_SHA256: ${{ inputs.sha256 }}
+        run: |
+          if [ -n "$INPUT_VERSION" ]; then
+            echo "version=$INPUT_VERSION" >> "$GITHUB_OUTPUT"
+            echo "url=$INPUT_DMG_URL" >> "$GITHUB_OUTPUT"
+            echo "sha256=$INPUT_SHA256" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          version="${GITHUB_REF_NAME#v}"
+          asset_url="$(gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets[] | select(.name | endswith(".dmg")) | .url' | head -n 1)"
+          asset_name="$(gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets[] | select(.name | endswith(".dmg")) | .name' | head -n 1)"
+          gh release download "$GITHUB_REF_NAME" --pattern "$asset_name" --dir /tmp/cask-asset
+          sha="$(shasum -a 256 "/tmp/cask-asset/$asset_name" | awk '{print $1}')"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "url=$asset_url" >> "$GITHUB_OUTPUT"
+          echo "sha256=$sha" >> "$GITHUB_OUTPUT"
+      - name: Checkout tap
+        if: steps.config.outputs.enabled == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.HOMEBREW_TAP_REPOSITORY }}
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: tap
+      - name: Write cask
+        if: steps.config.outputs.enabled == 'true'
+        run: |
+          mkdir -p tap/Casks
+          cat > tap/Casks/help-me-print.rb <<'RUBY'
+          cask "help-me-print" do
+            version "__VERSION__"
+            sha256 "__SHA256__"
+
+            url "__URL__"
+            name "Help Me Print"
+            desc "Manual duplex printing assistant"
+            homepage "https://github.com/hromau/help-me-print"
+
+            app "Help Me Print.app"
+          end
+          RUBY
+          sed -i "s#__VERSION__#${{ steps.meta.outputs.version }}#g" tap/Casks/help-me-print.rb
+          sed -i "s#__SHA256__#${{ steps.meta.outputs.sha256 }}#g" tap/Casks/help-me-print.rb
+          sed -i "s#__URL__#${{ steps.meta.outputs.url }}#g" tap/Casks/help-me-print.rb
+      - name: Commit and push
+        if: steps.config.outputs.enabled == 'true'
+        working-directory: tap
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Casks/help-me-print.rb
+          git commit -m "Update Help Me Print to ${{ steps.meta.outputs.version }}" || exit 0
+          git push

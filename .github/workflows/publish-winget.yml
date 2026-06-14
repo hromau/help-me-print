@@ -1,0 +1,34 @@
+name: Publish Winget
+
+on:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  winget:
+    name: Submit winget manifest
+    runs-on: windows-latest
+    steps:
+      - name: Check configuration
+        id: config
+        shell: bash
+        env:
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+        run: |
+          if [ -n "$WINGET_TOKEN" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Winget publishing is skipped because WINGET_TOKEN is missing."
+          fi
+      - uses: vedantmgoyal2009/winget-releaser@v2
+        if: steps.config.outputs.enabled == 'true'
+        with:
+          identifier: Easure.HelpMePrint
+          installers-regex: '\.exe$'
+          token: ${{ secrets.WINGET_TOKEN }}

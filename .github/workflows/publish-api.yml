@@ -1,0 +1,53 @@
+name: Publish Easure API
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "api/**"
+      - ".github/workflows/publish-api.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy Azure Function
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - name: Check configuration
+        id: config
+        env:
+          FUNCTION_APP_NAME: ${{ vars.AZURE_FUNCTIONAPP_NAME }}
+          PUBLISH_PROFILE: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
+        run: |
+          if [ -n "$FUNCTION_APP_NAME" ] && [ -n "$PUBLISH_PROFILE" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Azure Function deployment is skipped because AZURE_FUNCTIONAPP_NAME or AZURE_FUNCTIONAPP_PUBLISH_PROFILE is missing."
+          fi
+        working-directory: .
+      - uses: actions/checkout@v4
+        if: steps.config.outputs.enabled == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.config.outputs.enabled == 'true'
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: api/package-lock.json
+      - run: npm ci
+        if: steps.config.outputs.enabled == 'true'
+      - run: npm test
+        if: steps.config.outputs.enabled == 'true'
+      - uses: azure/functions-action@v1
+        if: steps.config.outputs.enabled == 'true'
+        with:
+          app-name: ${{ vars.AZURE_FUNCTIONAPP_NAME }}
+          package: api
+          publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}

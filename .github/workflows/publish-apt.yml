@@ -1,0 +1,79 @@
+name: Publish APT Repository
+
+on:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apt:
+    name: Publish deb to gh-pages apt repo
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check configuration
+        id: config
+        env:
+          APT_GPG_PRIVATE_KEY: ${{ secrets.APT_GPG_PRIVATE_KEY }}
+        run: |
+          if [ -n "$APT_GPG_PRIVATE_KEY" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "APT publishing is skipped because APT_GPG_PRIVATE_KEY is missing."
+          fi
+      - uses: actions/checkout@v4
+        if: steps.config.outputs.enabled == 'true'
+        with:
+          ref: gh-pages
+          path: pages
+        continue-on-error: true
+      - name: Prepare repository checkout
+        if: steps.config.outputs.enabled == 'true'
+        run: |
+          if [ ! -d pages/.git ]; then
+            mkdir -p pages
+            cd pages
+            git init
+            git checkout -b gh-pages
+            git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          fi
+      - name: Download deb
+        if: steps.config.outputs.enabled == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p /tmp/apt-assets
+          gh release download "$GITHUB_REF_NAME" --pattern "*.deb" --dir /tmp/apt-assets
+      - name: Import signing key
+        if: steps.config.outputs.enabled == 'true'
+        env:
+          APT_GPG_PRIVATE_KEY: ${{ secrets.APT_GPG_PRIVATE_KEY }}
+        run: |
+          echo "$APT_GPG_PRIVATE_KEY" | gpg --batch --import
+      - name: Build apt repository
+        if: steps.config.outputs.enabled == 'true'
+        run: |
+          set -e
+          sudo apt-get update
+          sudo apt-get install -y apt-utils dpkg-dev
+          mkdir -p pages/apt/pool/main/h/help-me-print pages/apt/dists/stable/main/binary-amd64
+          cp /tmp/apt-assets/*.deb pages/apt/pool/main/h/help-me-print/
+          cd pages/apt
+          dpkg-scanpackages --arch amd64 pool > dists/stable/main/binary-amd64/Packages
+          gzip -kf dists/stable/main/binary-amd64/Packages
+          apt-ftparchive release dists/stable > dists/stable/Release
+          gpg --batch --yes --clearsign -o dists/stable/InRelease dists/stable/Release
+          gpg --batch --yes -abs -o dists/stable/Release.gpg dists/stable/Release
+      - name: Commit and push
+        if: steps.config.outputs.enabled == 'true'
+        working-directory: pages
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apt
+          git commit -m "Publish apt package for $GITHUB_REF_NAME" || exit 0
+          git push origin gh-pages

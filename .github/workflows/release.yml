@@ -1,0 +1,77 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Native C++ ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: mac
+            os: macos-latest
+          - platform: windows
+            os: windows-latest
+          - platform: linux
+            os: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure native project
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Build native project
+        run: cmake --build build --config Release
+      - name: Test native core
+        run: ctest --test-dir build --output-on-failure -C Release
+      - name: Collect native artifacts
+        shell: bash
+        run: |
+          mkdir -p release
+          if [ -f build/cpp/app/duplexprint_qt ]; then
+            cp build/cpp/app/duplexprint_qt "release/help-me-print-${{ matrix.platform }}"
+          fi
+          if [ -f build/cpp/tests/duplexprint_core_tests ]; then
+            cp build/cpp/tests/duplexprint_core_tests "release/duplexprint-core-tests-${{ matrix.platform }}"
+          fi
+          if [ ! "$(find release -type f | wc -l)" -gt 0 ]; then
+            echo "No native artifacts were produced. Install Qt packaging support before using this workflow for distribution." >&2
+            exit 1
+          fi
+      - name: Generate checksums
+        shell: bash
+        run: |
+          cd release
+          if command -v shasum >/dev/null 2>&1; then
+            shasum -a 256 * > "SHA256SUMS-${{ matrix.platform }}.txt"
+          else
+            sha256sum * > "SHA256SUMS-${{ matrix.platform }}.txt"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: help-me-print-${{ matrix.platform }}
+          path: release/*
+          if-no-files-found: error
+
+  github-release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: artifacts/*

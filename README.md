@@ -20,6 +20,24 @@ DuplexPrint is a cross-platform Electron desktop app that guides manual duplex p
 - Node.js
 - Vite
 
+## Native Migration Track
+
+An in-progress native rewrite now lives under [cpp/](/Users/siarheih/Documents/Projects/help-me-print/cpp:1).
+
+- `cpp/core/` contains the C++ duplex workflow engine and shared models
+- `cpp/cloud/` defines the future Easure cloud profile repository contracts
+- `cpp/platform/` defines local profile store and platform-service contracts
+- `cpp/app/` contains the Qt desktop shell, built only when `Qt6 Widgets` is available
+- `cpp/tests/` contains C++ regression coverage for duplex planning logic
+
+Build the native core and tests with:
+
+```bash
+cmake -S . -B build
+cmake --build build
+ctest --test-dir build
+```
+
 ## Project Structure
 
 - `electron/` main-process code, preload bridge, and workflow services

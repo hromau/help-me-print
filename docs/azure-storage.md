@@ -44,15 +44,121 @@ Create:
 Suggested naming:
 
 - Resource Group: `duplexprint-prod-rg`
-- Storage Account: `duplexprintprod`
+- Storage Account: `duplexprint7ea1b526`
 - Table: `PrinterProfiles`
+
+## Created production resources
+
+Created on June 14, 2026 in the personal Azure subscription:
+
+- Subscription: `Default-subscription`
+- Subscription ID: `7ea1b526-76d9-4665-8a36-4ccfb56eed21`
+- Tenant: `whynotsergeigmail.onmicrosoft.com`
+- Resource Group: `duplexprint-prod-rg`
+- Location: `westeurope`
+- Storage Account: `duplexprint7ea1b526`
+- Table: `PrinterProfiles`
+- Table endpoint: `https://duplexprint7ea1b526.table.core.windows.net/`
+
+Use the isolated local Azure CLI profile for this project:
+
+```bash
+AZURE_CONFIG_DIR=/Users/siarheih/Documents/Projects/help-me-print/.azure-personal az account show
+```
+
+## How to create it in Azure Portal
+
+As of June 14, 2026, the simplest path is still:
+
+1. Open [Azure Portal](https://portal.azure.com/).
+2. Create a `Resource group`.
+   Suggested name: `duplexprint-prod-rg`
+3. Create a `Storage account`.
+   Suggested name: `duplexprint7ea1b526`
+4. In the storage account, open `Data storage` -> `Tables`.
+5. Create a table named `PrinterProfiles`.
+
+Recommended storage account settings for MVP:
+
+- Performance: `Standard`
+- Redundancy: `LRS`
+- Region: `westeurope`
+- Hierarchical namespace: `Disabled`
+- Allow storage account key access: `Enabled` for MVP
+
+You do not need:
+
+- Azure SQL
+- Cosmos DB at day one
+- Blob containers for profile data
+- Event Grid
+- Service Bus
+
+## How the app should authenticate
+
+For the first shipping version, the least painful option is:
+
+- desktop app talks to your backend API
+- backend API talks to Azure Table Storage
+
+Do not ship a desktop client that writes directly to Table Storage with an embedded account key or long-lived secret.
+
+Recommended shape:
+
+1. Desktop app sends printer fingerprint to Easure API.
+2. Easure API reads/writes `PrinterProfiles` table.
+3. API returns either:
+   - known profile
+   - no match
+   - profile accepted but pending moderation
+
+For local dev or private experiments, direct storage access is acceptable, but it should not be your production trust model.
+
+## Minimal entity design
+
+Use one table first: `PrinterProfiles`
+
+Partitioning:
+
+- `PartitionKey = normalized manufacturer`
+- `RowKey = normalized manufacturer + ":" + normalized model`
+
+Why not raw display name:
+
+- display names vary too much by driver and locale
+- manufacturer/model is much more stable
+
+Suggested entity:
+
+```json
+{
+  "PartitionKey": "hp",
+  "RowKey": "hp:smart tank 580",
+  "displayName": "HP Smart Tank 580",
+  "manufacturer": "HP",
+  "model": "Smart Tank 580",
+  "normalizedKey": "hp:smart tank 580",
+  "outputFace": "up",
+  "firstPassParity": "even",
+  "secondPassParity": "odd",
+  "firstPassOrder": "normal",
+  "evenPagesOrder": "reverse",
+  "reloadMethod": "same_stack",
+  "confidence": 98,
+  "votes": 241,
+  "createdAt": "2026-06-09T00:00:00.000Z",
+  "updatedAt": "2026-06-09T00:00:00.000Z",
+  "source": "cloud",
+  "schemaVersion": 1
+}
+```
 
 ## Data model
 
 Use:
 
-- `PartitionKey = manufacturer`
-- `RowKey = normalized model`
+- `PartitionKey = normalized manufacturer`
+- `RowKey = normalized manufacturer + ":" + normalized model`
 
 Recommended columns:
 
@@ -97,7 +203,11 @@ Move to **Azure Cosmos DB for Table** only if one of these becomes real:
 
 Important engineering choice:
 
-Use the `Azure.Data.Tables` SDK from day one. It targets both Azure Table Storage and Azure Cosmos DB for Table, which reduces migration friction later.
+Use the `Azure.Data.Tables` SDK from day one. Microsoft documents that the same client library targets Azure Table Storage and Azure Cosmos DB for Table, which keeps migration friction low later. Sources:
+
+- [Azure Table storage documentation](https://learn.microsoft.com/en-us/azure/storage/tables/)
+- [Azure Tables client library for .NET](https://learn.microsoft.com/en-us/dotnet/api/azure.data.tables?view=azure-dotnet)
+- [Azure Cosmos DB for Table overview](https://learn.microsoft.com/en-us/azure/cosmos-db/table/overview)
 
 ## Suggested rollout
 

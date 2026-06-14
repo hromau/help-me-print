@@ -1,0 +1,92 @@
+# Publishing
+
+This project publishes in stages:
+
+1. CI validates the app, API, and C++ core on every push and pull request.
+2. A `v*` tag builds the native C++ project and uploads artifacts to GitHub Releases.
+3. Optional publish workflows update Homebrew, Winget, and an APT repository after native installers are produced.
+
+The release pipeline is intentionally native-first. Do not use Electron packaging for distribution; Electron remains only as the legacy implementation while the Qt/C++ rewrite is completed.
+
+## GitHub Release
+
+Create a release by pushing a tag:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The release workflow currently builds the C++ project and uploads native artifacts produced by CMake. Full store-ready packaging still needs native installer targets:
+
+- macOS: `.app` packaged into `.dmg` or `.pkg`
+- Windows: `.msi` or `.exe` installer
+- Linux: `.deb` and optionally `.AppImage`
+
+Until the Qt application target is fully implemented and Qt is installed in CI, the release workflow should be treated as native pipeline scaffolding, not a finished distribution pipeline.
+
+## Homebrew Cask
+
+Create a tap repository, for example:
+
+```text
+hromau/homebrew-tap
+```
+
+Configure repository variables and secrets in `hromau/help-me-print`:
+
+- Variable `HOMEBREW_TAP_REPOSITORY`: `hromau/homebrew-tap`
+- Secret `HOMEBREW_TAP_TOKEN`: a GitHub token with write access to the tap repo
+
+The workflow writes:
+
+```text
+Casks/help-me-print.rb
+```
+
+Users install with:
+
+```bash
+brew tap hromau/tap
+brew install --cask help-me-print
+```
+
+## Winget
+
+Configure:
+
+- Secret `WINGET_TOKEN`: GitHub token suitable for opening pull requests against `microsoft/winget-pkgs`
+
+The `publish-winget` workflow uses `vedantmgoyal2009/winget-releaser` and package identifier:
+
+```text
+Easure.HelpMePrint
+```
+
+The Windows release must contain an `.exe` installer.
+
+## APT
+
+The `publish-apt` workflow publishes a small signed APT repository to GitHub Pages on `gh-pages`.
+
+Configure:
+
+- Secret `APT_GPG_PRIVATE_KEY`: private GPG key used to sign `InRelease` and `Release.gpg`
+
+Users install with:
+
+```bash
+curl -fsSL https://hromau.github.io/help-me-print/apt/dists/stable/Release.gpg | sudo gpg --dearmor -o /usr/share/keyrings/help-me-print.gpg
+echo "deb [signed-by=/usr/share/keyrings/help-me-print.gpg] https://hromau.github.io/help-me-print/apt stable main" | sudo tee /etc/apt/sources.list.d/help-me-print.list
+sudo apt update
+sudo apt install help-me-print
+```
+
+## Easure API
+
+Configure:
+
+- Variable `AZURE_FUNCTIONAPP_NAME`: `easure-duplexprint-api`
+- Secret `AZURE_FUNCTIONAPP_PUBLISH_PROFILE`: publish profile XML from the Azure Function App
+
+Then `publish-api` deploys changes under `api/` automatically from `main`.
