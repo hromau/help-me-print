@@ -23,6 +23,8 @@ jobs:
   update-cask:
     name: Update tap repository
     runs-on: ubuntu-latest
+    outputs:
+      tap_branch: ${{ steps.tap.outputs.branch }}
     steps:
       - name: Check configuration
         id: config
@@ -61,13 +63,25 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "url=$asset_url" >> "$GITHUB_OUTPUT"
           echo "sha256=$sha" >> "$GITHUB_OUTPUT"
-      - name: Checkout tap
+      - name: Prepare tap checkout
         if: steps.config.outputs.enabled == 'true'
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ vars.HOMEBREW_TAP_REPOSITORY }}
-          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          path: tap
+        id: tap
+        env:
+          TAP_REPOSITORY: ${{ vars.HOMEBREW_TAP_REPOSITORY }}
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          remote_url="https://x-access-token:${TAP_TOKEN}@github.com/${TAP_REPOSITORY}.git"
+          default_branch="$(git ls-remote --symref "$remote_url" HEAD | awk '/^ref:/ {sub("refs/heads/", "", $2); print $2}')"
+          if [ -n "$default_branch" ]; then
+            git clone --branch "$default_branch" --depth 1 "$remote_url" tap
+            echo "branch=$default_branch" >> "$GITHUB_OUTPUT"
+          else
+            mkdir -p tap
+            git -C tap init
+            git -C tap checkout -b main
+            git -C tap remote add origin "$remote_url"
+            echo "branch=main" >> "$GITHUB_OUTPUT"
+          fi
       - name: Write cask
         if: steps.config.outputs.enabled == 'true'
         run: |
@@ -96,4 +110,4 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add Casks/help-me-print.rb
           git commit -m "Update Help Me Print to ${{ steps.meta.outputs.version }}" || exit 0
-          git push
+          git push origin "${{ steps.tap.outputs.branch }}"

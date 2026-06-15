@@ -25,21 +25,19 @@ jobs:
             echo "enabled=false" >> "$GITHUB_OUTPUT"
             echo "APT publishing is skipped because APT_GPG_PRIVATE_KEY is missing."
           fi
-      - uses: actions/checkout@v4
+      - name: Prepare gh-pages worktree
         if: steps.config.outputs.enabled == 'true'
-        with:
-          ref: gh-pages
-          path: pages
-        continue-on-error: true
-      - name: Prepare repository checkout
-        if: steps.config.outputs.enabled == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          if [ ! -d pages/.git ]; then
+          remote_url="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git ls-remote --exit-code --heads "$remote_url" gh-pages >/dev/null 2>&1; then
+            git clone --branch gh-pages --depth 1 "$remote_url" pages
+          else
             mkdir -p pages
-            cd pages
-            git init
-            git checkout -b gh-pages
-            git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+            git -C pages init
+            git -C pages checkout --orphan gh-pages
+            git -C pages remote add origin "$remote_url"
           fi
       - name: Download deb
         if: steps.config.outputs.enabled == 'true'
