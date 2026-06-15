@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build:
-    name: Native C++ ${{ matrix.platform }}
+    name: Package ${{ matrix.platform }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -19,30 +19,53 @@ jobs:
         include:
           - platform: mac
             os: macos-latest
+            qt-host: mac
+            qt-target: desktop
+            cpack-generator: DragNDrop
           - platform: windows
             os: windows-latest
+            qt-host: windows
+            qt-target: desktop
+            cpack-generator: NSIS
           - platform: linux
             os: ubuntu-latest
+            qt-host: linux
+            qt-target: desktop
+            cpack-generator: DEB
     steps:
       - uses: actions/checkout@v4
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: "6.7.2"
+          host: ${{ matrix.qt-host }}
+          target: ${{ matrix.qt-target }}
+          cache: true
+      - name: Install Linux packaging tools
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dpkg-dev fakeroot
+      - name: Install Windows packaging tools
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: choco install nsis --no-progress
       - name: Configure native project
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DDUPLEXPRINT_BUILD_TESTS=ON
       - name: Build native project
         run: cmake --build build --config Release
       - name: Test native core
         run: ctest --test-dir build --output-on-failure -C Release
-      - name: Collect native artifacts
+      - name: Package native app
         shell: bash
         run: |
+          cpack --config build/CPackConfig.cmake -G "${{ matrix.cpack-generator }}" -B build/packages
           mkdir -p release
-          if [ -f build/cpp/app/duplexprint_qt ]; then
-            cp build/cpp/app/duplexprint_qt "release/help-me-print-${{ matrix.platform }}"
-          fi
-          if [ -f build/cpp/tests/duplexprint_core_tests ]; then
-            cp build/cpp/tests/duplexprint_core_tests "release/duplexprint-core-tests-${{ matrix.platform }}"
-          fi
-          if [ ! "$(find release -type f | wc -l)" -gt 0 ]; then
-            echo "No native artifacts were produced. Install Qt packaging support before using this workflow for distribution." >&2
+          find build/packages -maxdepth 1 -type f \
+            \( -name "*.dmg" -o -name "*.exe" -o -name "*.deb" \) \
+            -exec cp {} release/ \;
+          if [ ! "$(find release -maxdepth 1 -type f | wc -l)" -gt 0 ]; then
+            echo "No installable package was produced." >&2
             exit 1
           fi
       - name: Generate checksums

@@ -45,9 +45,10 @@ jobs:
         if: steps.config.outputs.enabled == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
           mkdir -p /tmp/apt-assets
-          gh release download "$GITHUB_REF_NAME" --pattern "*.deb" --dir /tmp/apt-assets
+          gh release download "${RELEASE_TAG:-$GITHUB_REF_NAME}" --pattern "*.deb" --dir /tmp/apt-assets
       - name: Import signing key
         if: steps.config.outputs.enabled == 'true'
         env:
@@ -71,9 +72,11 @@ jobs:
       - name: Commit and push
         if: steps.config.outputs.enabled == 'true'
         working-directory: pages
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add apt
-          git commit -m "Publish apt package for $GITHUB_REF_NAME" || exit 0
+          git commit -m "Publish apt package for ${RELEASE_TAG:-$GITHUB_REF_NAME}" || exit 0
           git push origin gh-pages

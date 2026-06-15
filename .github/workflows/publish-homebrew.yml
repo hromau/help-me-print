@@ -41,6 +41,7 @@ jobs:
         id: meta
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
           INPUT_VERSION: ${{ inputs.version }}
           INPUT_DMG_URL: ${{ inputs.dmg_url }}
           INPUT_SHA256: ${{ inputs.sha256 }}
@@ -51,10 +52,11 @@ jobs:
             echo "sha256=$INPUT_SHA256" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          version="${GITHUB_REF_NAME#v}"
-          asset_url="$(gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets[] | select(.name | endswith(".dmg")) | .url' | head -n 1)"
-          asset_name="$(gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets[] | select(.name | endswith(".dmg")) | .name' | head -n 1)"
-          gh release download "$GITHUB_REF_NAME" --pattern "$asset_name" --dir /tmp/cask-asset
+          release_tag="${RELEASE_TAG:-$GITHUB_REF_NAME}"
+          version="${release_tag#v}"
+          asset_url="$(gh release view "$release_tag" --json assets --jq '.assets[] | select(.name | endswith(".dmg")) | .browser_download_url' | head -n 1)"
+          asset_name="$(gh release view "$release_tag" --json assets --jq '.assets[] | select(.name | endswith(".dmg")) | .name' | head -n 1)"
+          gh release download "$release_tag" --pattern "$asset_name" --dir /tmp/cask-asset
           sha="$(shasum -a 256 "/tmp/cask-asset/$asset_name" | awk '{print $1}')"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "url=$asset_url" >> "$GITHUB_OUTPUT"
