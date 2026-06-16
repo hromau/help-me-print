@@ -2,6 +2,7 @@
 
 #include <QComboBox>
 #include <QDateTime>
+#include <QDesktopServices>
 #include <QFileDialog>
 #include <QFormLayout>
 #include <QHBoxLayout>
@@ -9,6 +10,7 @@
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QUrl>
 #include <QStandardPaths>
 #include <QTextEdit>
 #include <QVBoxLayout>
@@ -87,10 +89,17 @@ void MainWindow::build_ui() {
   first_pass_button_ = new QPushButton("Print first pass", central);
   second_pass_button_ = new QPushButton("Print second pass", central);
   reset_button_ = new QPushButton("Reset job", central);
+  support_button_ = new QPushButton("Buy me a coffee", central);
+  support_button_->setToolTip("Open buymeacoffee.com/siarheih");
 
   plan_view_ = new QTextEdit(central);
   plan_view_->setReadOnly(true);
   plan_view_->setMinimumHeight(150);
+
+  auto* header = new QHBoxLayout();
+  header->addWidget(title);
+  header->addStretch();
+  header->addWidget(support_button_);
 
   auto* form = new QFormLayout();
   form->addRow("Document", document_label_);
@@ -108,12 +117,16 @@ void MainWindow::build_ui() {
   print_actions->addWidget(first_pass_button_);
   print_actions->addWidget(second_pass_button_);
 
-  root->addWidget(title);
+  auto* footer_actions = new QHBoxLayout();
+  footer_actions->addWidget(reset_button_);
+  footer_actions->addStretch();
+
+  root->addLayout(header);
   root->addLayout(form);
   root->addLayout(top_actions);
   root->addWidget(plan_view_);
   root->addLayout(print_actions);
-  root->addWidget(reset_button_);
+  root->addLayout(footer_actions);
   root->addWidget(status_label_);
 
   setCentralWidget(central);
@@ -125,6 +138,7 @@ void MainWindow::build_ui() {
   connect(first_pass_button_, &QPushButton::clicked, this, [this] { run_first_pass(); });
   connect(second_pass_button_, &QPushButton::clicked, this, [this] { run_second_pass(); });
   connect(reset_button_, &QPushButton::clicked, this, [this] { reset_job(); });
+  connect(support_button_, &QPushButton::clicked, this, [this] { open_support_link(); });
   connect(printer_combo_, &QComboBox::currentIndexChanged, this, [this] { update_ui(); });
 }
 
@@ -281,6 +295,14 @@ void MainWindow::reset_job() {
   stage_ = Stage::Setup;
   set_status("Job reset.");
   update_ui();
+}
+
+void MainWindow::open_support_link() {
+  if (!QDesktopServices::openUrl(QUrl("https://buymeacoffee.com/siarheih"))) {
+    QMessageBox::warning(this,
+                         "Unable to open link",
+                         "Could not open https://buymeacoffee.com/siarheih");
+  }
 }
 
 void MainWindow::set_status(const QString& message) {

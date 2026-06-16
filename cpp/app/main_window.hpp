@@ -44,6 +44,7 @@ class MainWindow : public QMainWindow {
   void run_first_pass();
   void run_second_pass();
   void reset_job();
+  void open_support_link();
   void update_ui();
   void set_status(const QString& message);
 
@@ -63,6 +64,7 @@ class MainWindow : public QMainWindow {
   QPushButton* first_pass_button_ {nullptr};
   QPushButton* second_pass_button_ {nullptr};
   QPushButton* reset_button_ {nullptr};
+  QPushButton* support_button_ {nullptr};
 
   core::WorkflowEngine workflow_engine_;
   QtDocumentService document_service_;
