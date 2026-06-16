@@ -14,8 +14,8 @@ jobs:
     name: Easure API
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 9.0.x
       - run: dotnet restore api/Easure.PrintProfiles.Api.csproj
@@ -26,7 +26,7 @@ jobs:
     name: C++ core
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - run: cmake -S . -B build
       - run: cmake --build build
       - run: ctest --test-dir build --output-on-failure
@@ -35,7 +35,7 @@ jobs:
     name: Native Qt app
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:

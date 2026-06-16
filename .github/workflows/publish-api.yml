@@ -36,15 +36,15 @@ jobs:
             echo "Azure Function deployment is skipped because AZURE_FUNCTIONAPP_NAME, AZURE_CLIENT_ID, AZURE_TENANT_ID, or AZURE_SUBSCRIPTION_ID is missing."
           fi
         working-directory: .
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         if: steps.config.outputs.enabled == 'true'
-      - uses: azure/login@v2
+      - uses: azure/login@v3
         if: steps.config.outputs.enabled == 'true'
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v5
         if: steps.config.outputs.enabled == 'true'
         with:
           dotnet-version: 9.0.x
