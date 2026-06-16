@@ -1,12 +1,28 @@
 node_modules
 .idea
+.DS_Store
+
+# Local build trees and package staging
 dist
 build
+cmake-build-*
+_CPack_Packages
 release
+
+# Local credentials and machine state
 .azure-personal
 api/local.settings.json
+.env
+.env.*
+
+# .NET build output
 api/bin
 api/obj
 api/tests/bin
 api/tests/obj
+
+# Local design research scratch files
+.lazyweb
+.lazyweb_refs
+
 *.log
