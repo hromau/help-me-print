@@ -29,6 +29,7 @@ jobs:
     outputs:
       tap_branch: ${{ steps.tap.outputs.branch }}
     steps:
+      - uses: actions/checkout@v5
       - name: Check configuration
         id: config
         env:

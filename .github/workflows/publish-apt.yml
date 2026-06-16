@@ -18,6 +18,7 @@ jobs:
     name: Publish deb to gh-pages apt repo
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v5
       - name: Check configuration
         id: config
         env:

@@ -60,6 +60,7 @@ brew install --cask help-me-print
 Configure:
 
 - Secret `WINGET_TOKEN`: GitHub token suitable for opening pull requests against `microsoft/winget-pkgs`
+- Variable `WINGET_AUTOMATION_ENABLED`: set to `true` only after the first `Easure.HelpMePrint` package has been merged into `microsoft/winget-pkgs`
 
 The `publish-winget` workflow uses `vedantmgoyal2009/winget-releaser` and package identifier:
 
