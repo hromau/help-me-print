@@ -35,19 +35,19 @@ jobs:
         working-directory: .
       - uses: actions/checkout@v4
         if: steps.config.outputs.enabled == 'true'
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-dotnet@v4
         if: steps.config.outputs.enabled == 'true'
         with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: api/package-lock.json
-      - run: npm ci
+          dotnet-version: 9.0.x
+      - run: dotnet restore Easure.PrintProfiles.Api.csproj
         if: steps.config.outputs.enabled == 'true'
-      - run: npm test
+      - run: dotnet test tests/Easure.PrintProfiles.Api.Tests.csproj --configuration Release
+        if: steps.config.outputs.enabled == 'true'
+      - run: dotnet publish Easure.PrintProfiles.Api.csproj --configuration Release --output publish
         if: steps.config.outputs.enabled == 'true'
       - uses: azure/functions-action@v1
         if: steps.config.outputs.enabled == 'true'
         with:
           app-name: ${{ vars.AZURE_FUNCTIONAPP_NAME }}
-          package: api
+          package: api/publish
           publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}

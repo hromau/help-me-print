@@ -7,7 +7,7 @@ Use Azure Functions for the first API version.
 Recommended plan for the smallest bill:
 
 - Azure Functions `Consumption`
-- Node.js 24 runtime
+- .NET 9 isolated worker runtime
 - Existing `duplexprint7ea1b526` storage account
 - Existing `PrinterProfiles` table
 
@@ -22,7 +22,7 @@ Created on June 14, 2026:
 - Function App: `easure-duplexprint-api`
 - Hostname: `https://easure-duplexprint-api.azurewebsites.net`
 - Plan: Windows Consumption, `Dynamic`
-- Runtime: Node.js 24, Azure Functions v4
+- Runtime: .NET 9 isolated worker, Azure Functions v4
 - Resource Group: `duplexprint-prod-rg`
 - Storage Account: `duplexprint7ea1b526`
 - Table: `PrinterProfiles`
@@ -71,7 +71,7 @@ Create `api/local.settings.json` locally:
   "IsEncrypted": false,
   "Values": {
     "AzureWebJobsStorage": "UseDevelopmentStorage=true",
-    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
     "AZURE_TABLE_CONNECTION_STRING": "<storage connection string>",
     "PRINTER_PROFILES_TABLE": "PrinterProfiles"
   }
@@ -81,10 +81,8 @@ Create `api/local.settings.json` locally:
 Run:
 
 ```bash
-cd api
-npm install
-npm test
-npm start
+dotnet test api/tests/Easure.PrintProfiles.Api.Tests.csproj
+dotnet run --project api/Easure.PrintProfiles.Api.csproj
 ```
 
 ## Deploy outline
@@ -103,8 +101,8 @@ az functionapp create \
   --name easure-duplexprint-api \
   --storage-account duplexprint7ea1b526 \
   --consumption-plan-location westeurope \
-  --runtime node \
-  --runtime-version 24 \
+  --runtime dotnet-isolated \
+  --runtime-version 9 \
   --functions-version 4 \
   --os-type Windows
 ```
@@ -131,8 +129,9 @@ az functionapp config appsettings set \
 Deploy from `api/`:
 
 ```bash
-npm install
-zip -r /tmp/easure-duplexprint-api-package.zip . -x 'local.settings.json' 'tests/*' '*.log'
+dotnet publish api/Easure.PrintProfiles.Api.csproj --configuration Release --output /tmp/easure-api-publish
+cd /tmp/easure-api-publish
+zip -r /tmp/easure-duplexprint-api-package.zip .
 az functionapp deployment source config-zip \
   --resource-group duplexprint-prod-rg \
   --name easure-duplexprint-api \

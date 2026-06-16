@@ -1,5 +1,6 @@
-node_modules
 local.settings.json
-test
-tests
+bin
+obj
+tests/bin
+tests/obj
 *.log

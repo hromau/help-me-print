@@ -1,80 +1,71 @@
-# DuplexPrint
+# Help Me Print
 
-DuplexPrint is a cross-platform Electron desktop app that guides manual duplex printing for printers without automatic double-sided support.
+Help Me Print is a native cross-platform desktop app for manual duplex printing on printers without automatic double-sided support.
 
-## Current MVP Scope
+## Scope
 
 - Select a PDF
-- Select a printer
-- Prepare odd and even print passes
-- Run a first-pass print flow
-- Learn printer behavior from a simple question
-- Save a local printer profile
-- Reuse learned behavior on later jobs
+- Select a system printer
+- Detect local or Easure cloud printer profiles
+- Prepare odd/even print passes
+- Print first and second manual duplex passes
+- Learn printer behavior through a calibration flow
+- Save local printer profiles
+- Reuse shared cloud profiles when available
 
 ## Tech Stack
 
-- Electron
-- TypeScript
-- React
-- Node.js
-- Vite
-
-## Native Migration Track
-
-An in-progress native rewrite now lives under [cpp/](/Users/siarheih/Documents/Projects/help-me-print/cpp:1).
-
-- `cpp/core/` contains the C++ duplex workflow engine and shared models
-- `cpp/cloud/` defines the future Easure cloud profile repository contracts
-- `cpp/platform/` defines local profile store and platform-service contracts
-- `cpp/app/` contains the Qt desktop shell, built only when `Qt6 Widgets` is available
-- `cpp/tests/` contains C++ regression coverage for duplex planning logic
-
-Build the native core and tests with:
-
-```bash
-cmake -S . -B build
-cmake --build build
-ctest --test-dir build
-```
+- C++20
+- Qt 6 Widgets
+- CMake / CPack
+- Azure Functions API for shared Easure printer profiles
+- Azure Table Storage for cloud profile data
 
 ## Project Structure
 
-- `electron/` main-process code, preload bridge, and workflow services
-- `src/` renderer app and shared UI
-- `src/shared/` domain models shared between renderer and main process
+- `cpp/app/` native Qt desktop app
+- `cpp/core/` duplex workflow engine and shared models
+- `cpp/platform/` local profile store and printer profile resolution
+- `cpp/cloud/` Easure cloud profile repository contracts
+- `cpp/tests/` C++ regression tests
+- `api/` Azure Functions API for shared printer profiles
+- `docs/` deployment, Azure, and publishing notes
 
-## Important Notes
+## Build Native App
 
-This scaffold currently uses:
-
-- simulated printer discovery
-- simulated PDF page count
-- simulated print completion
-
-These placeholders isolate the workflow and profile model first. The next engineering step is to replace them with:
-
-1. real printer enumeration
-2. real PDF inspection and page extraction
-3. real OS print-job submission and completion tracking
-4. optional Azure Table Storage sync for shared printer profiles
-
-## Azure backend note
-
-Cloud profile storage guidance is documented in [docs/azure-storage.md](/Users/siarheih/Documents/Projects/help-me-print/docs/azure-storage.md:1).
-
-## Development
+Install Qt 6 and configure CMake with the Qt prefix when needed:
 
 ```bash
-npm install
-npm run dev
-npm test
+cmake -S . -B build -DCMAKE_PREFIX_PATH=/opt/homebrew/opt/qt
+cmake --build build --target duplexprint_qt
 ```
 
-## Packaging Targets
+On macOS the native app is built at:
 
-Planned distribution:
+```text
+build/cpp/app/help-me-print.app
+```
 
-- Winget
-- Homebrew Cask
-- AppImage
+## Test
+
+```bash
+cmake -S . -B build -DCMAKE_PREFIX_PATH=/opt/homebrew/opt/qt
+cmake --build build
+ctest --test-dir build --output-on-failure
+```
+
+API tests:
+
+```bash
+dotnet test api/tests/Easure.PrintProfiles.Api.Tests.csproj
+```
+
+## Cloud Backend
+
+Cloud profile storage is documented in [docs/azure-storage.md](/Users/siarheih/Documents/Projects/help-me-print/docs/azure-storage.md:1).
+
+The Easure API is documented in [docs/easure-api.md](/Users/siarheih/Documents/Projects/help-me-print/docs/easure-api.md:1).
+
+## Publishing
+
+Release and package publishing notes are in [docs/publishing.md](/Users/siarheih/Documents/Projects/help-me-print/docs/publishing.md:1).

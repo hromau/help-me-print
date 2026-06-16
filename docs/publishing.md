@@ -6,7 +6,7 @@ This project publishes in stages:
 2. A `v*` tag builds the native C++ project and uploads artifacts to GitHub Releases.
 3. Optional publish workflows update Homebrew, Winget, and an APT repository after native installers are produced.
 
-The release pipeline is intentionally native-first. Do not use Electron packaging for distribution; Electron remains only as the legacy implementation while the Qt/C++ rewrite is completed.
+The release pipeline is intentionally native-first. Desktop distribution uses the C++/Qt application only.
 
 ## GitHub Release
 

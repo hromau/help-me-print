@@ -1,4 +1,4 @@
-find_package(Qt6 COMPONENTS Widgets QUIET)
+find_package(Qt6 COMPONENTS Widgets Pdf Network QUIET)
 
 if(Qt6_FOUND)
   qt_standard_project_setup()
@@ -9,11 +9,23 @@ if(Qt6_FOUND)
     main.cpp
     main_window.cpp
     main_window.hpp
+    qt_document_service.cpp
+    qt_document_service.hpp
+    qt_easure_profile_repository.cpp
+    qt_easure_profile_repository.hpp
+    qt_pdf_service.cpp
+    qt_pdf_service.hpp
+    qt_print_service.cpp
+    qt_print_service.hpp
+    qt_printer_service.cpp
+    qt_printer_service.hpp
   )
 
   target_link_libraries(duplexprint_qt
     PRIVATE
       Qt6::Widgets
+      Qt6::Pdf
+      Qt6::Network
       duplexprint_core
       duplexprint_cloud
       duplexprint_platform
@@ -41,5 +53,5 @@ if(Qt6_FOUND)
 
   qt_finalize_executable(duplexprint_qt)
 else()
-  message(STATUS "Qt6 Widgets not found; skipping native UI target.")
+  message(STATUS "Qt6 Widgets/Pdf/Network not found; skipping native UI target.")
 endif()

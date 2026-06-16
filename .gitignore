@@ -1,9 +1,12 @@
 node_modules
 .idea
 dist
-dist-electron
 build
 release
 .azure-personal
 api/local.settings.json
+api/bin
+api/obj
+api/tests/bin
+api/tests/obj
 *.log
