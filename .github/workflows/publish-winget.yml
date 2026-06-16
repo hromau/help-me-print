@@ -6,6 +6,9 @@ on:
       - published
   workflow_dispatch:
     inputs:
+      release_tag:
+        description: Release tag to publish, for example v0.1.1
+        required: false
       bootstrap_note:
         description: One-time reminder for the first winget submission
         required: false
@@ -45,4 +48,5 @@ jobs:
         with:
           identifier: Easure.HelpMePrint
           installers-regex: '\.exe$'
+          release-tag: ${{ inputs.release_tag }}
           token: ${{ secrets.WINGET_TOKEN }}

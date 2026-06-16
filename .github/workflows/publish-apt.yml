@@ -5,6 +5,10 @@ on:
     types:
       - published
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release tag to publish, for example v0.1.1
+        required: false
 
 permissions:
   contents: write
@@ -47,9 +51,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.event.release.tag_name }}
+          INPUT_RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           mkdir -p /tmp/apt-assets
-          gh release download "${RELEASE_TAG:-$GITHUB_REF_NAME}" --pattern "*.deb" --dir /tmp/apt-assets
+          release_tag="${INPUT_RELEASE_TAG:-$RELEASE_TAG}"
+          if [ -z "$release_tag" ]; then
+            release_tag="$(gh release list --limit 1 --json tagName --jq '.[0].tagName')"
+          fi
+          gh release download "$release_tag" --pattern "*.deb" --dir /tmp/apt-assets
       - name: Import signing key
         if: steps.config.outputs.enabled == 'true'
         env:
@@ -75,10 +84,15 @@ jobs:
         working-directory: pages
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
+          INPUT_RELEASE_TAG: ${{ inputs.release_tag }}
           APT_REPOSITORY: ${{ vars.APT_REPOSITORY }}
         run: |
+          release_tag="${INPUT_RELEASE_TAG:-$RELEASE_TAG}"
+          if [ -z "$release_tag" ]; then
+            release_tag="$(date +%Y%m%d%H%M%S)"
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add apt
-          git commit -m "Publish apt package for ${RELEASE_TAG:-$GITHUB_REF_NAME}" || exit 0
+          git commit -m "Publish apt package for ${release_tag}" || exit 0
           git push origin gh-pages
