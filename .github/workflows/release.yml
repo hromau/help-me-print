@@ -40,6 +40,7 @@ jobs:
           version: "6.7.2"
           host: ${{ matrix.qt-host }}
           target: ${{ matrix.qt-target }}
+          modules: qtpdf
           cache: true
       - name: Install Linux packaging tools
         if: runner.os == 'Linux'
@@ -51,7 +52,7 @@ jobs:
         shell: pwsh
         run: choco install nsis --no-progress
       - name: Configure native project
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DDUPLEXPRINT_BUILD_TESTS=ON
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DDUPLEXPRINT_BUILD_TESTS=ON -DDUPLEXPRINT_REQUIRE_QT_APP=ON
       - name: Build native project
         run: cmake --build build --config Release
       - name: Test native core

@@ -53,5 +53,8 @@ if(Qt6_FOUND)
 
   qt_finalize_executable(duplexprint_qt)
 else()
+  if(DUPLEXPRINT_REQUIRE_QT_APP)
+    message(FATAL_ERROR "Qt6 Widgets/Pdf/Network not found; cannot create duplexprint_qt target.")
+  endif()
   message(STATUS "Qt6 Widgets/Pdf/Network not found; skipping native UI target.")
 endif()

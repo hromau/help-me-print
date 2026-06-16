@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(DUPLEXPRINT_BUILD_TESTS "Build DuplexPrint C++ tests" ON)
+option(DUPLEXPRINT_REQUIRE_QT_APP "Fail configure when the Qt desktop app target cannot be created" OFF)
 
 set(DUPLEXPRINT_APP_NAME "Help Me Print")
 set(DUPLEXPRINT_PACKAGE_NAME "help-me-print")

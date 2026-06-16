@@ -42,6 +42,7 @@ jobs:
           version: "6.7.2"
           host: linux
           target: desktop
+          modules: qtpdf
           cache: true
-      - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+      - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DDUPLEXPRINT_REQUIRE_QT_APP=ON
       - run: cmake --build build --target duplexprint_qt --config Release
