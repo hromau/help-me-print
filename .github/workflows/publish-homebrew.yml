@@ -93,7 +93,7 @@ jobs:
 
             url "__URL__"
             name "Help Me Print"
-            desc "Manual duplex printing assistant"
+            desc "Manual duplex printing for printers without automatic double-sided support"
             homepage "https://github.com/hromau/help-me-print"
 
             app "Help Me Print.app"
