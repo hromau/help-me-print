@@ -18,19 +18,22 @@ jobs:
         id: config
         env:
           APT_GPG_PRIVATE_KEY: ${{ secrets.APT_GPG_PRIVATE_KEY }}
+          APT_REPOSITORY: ${{ vars.APT_REPOSITORY }}
+          APT_REPOSITORY_TOKEN: ${{ secrets.APT_REPOSITORY_TOKEN }}
         run: |
-          if [ -n "$APT_GPG_PRIVATE_KEY" ]; then
+          if [ -n "$APT_GPG_PRIVATE_KEY" ] && [ -n "$APT_REPOSITORY" ] && [ -n "$APT_REPOSITORY_TOKEN" ]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "APT publishing is skipped because APT_GPG_PRIVATE_KEY is missing."
+            echo "APT publishing is skipped because APT_GPG_PRIVATE_KEY, APT_REPOSITORY, or APT_REPOSITORY_TOKEN is missing."
           fi
       - name: Prepare gh-pages worktree
         if: steps.config.outputs.enabled == 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
+          APT_REPOSITORY: ${{ vars.APT_REPOSITORY }}
+          APT_REPOSITORY_TOKEN: ${{ secrets.APT_REPOSITORY_TOKEN }}
         run: |
-          remote_url="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          remote_url="https://x-access-token:${APT_REPOSITORY_TOKEN}@github.com/${APT_REPOSITORY}.git"
           if git ls-remote --exit-code --heads "$remote_url" gh-pages >/dev/null 2>&1; then
             git clone --branch gh-pages --depth 1 "$remote_url" pages
           else
@@ -72,6 +75,7 @@ jobs:
         working-directory: pages
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
+          APT_REPOSITORY: ${{ vars.APT_REPOSITORY }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
