@@ -66,6 +66,10 @@ jobs:
           APT_GPG_PRIVATE_KEY: ${{ secrets.APT_GPG_PRIVATE_KEY }}
           APT_GPG_PASSPHRASE: ${{ secrets.APT_GPG_PASSPHRASE }}
         run: |
+          if [ -z "$APT_GPG_PASSPHRASE" ]; then
+            echo "APT_GPG_PASSPHRASE is empty or unavailable in this workflow context." >&2
+            exit 1
+          fi
           mkdir -p ~/.gnupg
           chmod 700 ~/.gnupg
           printf 'pinentry-mode loopback\n' > ~/.gnupg/gpg.conf
