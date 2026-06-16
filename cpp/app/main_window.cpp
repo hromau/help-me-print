@@ -10,6 +10,7 @@
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QSizePolicy>
 #include <QUrl>
 #include <QStandardPaths>
 #include <QTextEdit>
@@ -61,7 +62,7 @@ MainWindow::MainWindow()
 
 void MainWindow::build_ui() {
   setWindowTitle("Help Me Print");
-  resize(520, 620);
+  resize(520, 480);
 
   auto* central = new QWidget(this);
   auto* root = new QVBoxLayout(central);
@@ -95,7 +96,11 @@ void MainWindow::build_ui() {
 
   plan_view_ = new QTextEdit(central);
   plan_view_->setReadOnly(true);
-  plan_view_->setMinimumHeight(150);
+  plan_view_->setFixedHeight(110);
+  plan_view_->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+  plan_view_->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+  plan_view_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+  plan_view_->setPlaceholderText("Print plan will appear here.");
 
   auto* header = new QHBoxLayout();
   header->addWidget(title);
