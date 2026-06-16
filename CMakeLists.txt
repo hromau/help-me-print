@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(DuplexPrintCpp LANGUAGES CXX)
+project(DuplexPrintCpp VERSION 0.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -8,6 +8,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(DUPLEXPRINT_BUILD_TESTS "Build DuplexPrint C++ tests" ON)
 option(DUPLEXPRINT_REQUIRE_QT_APP "Fail configure when the Qt desktop app target cannot be created" OFF)
+set(DUPLEXPRINT_VERSION "${PROJECT_VERSION}" CACHE STRING "Application and package version")
 
 set(DUPLEXPRINT_APP_NAME "Help Me Print")
 set(DUPLEXPRINT_PACKAGE_NAME "help-me-print")
@@ -27,7 +28,7 @@ set(CPACK_PACKAGE_NAME "${DUPLEXPRINT_PACKAGE_NAME}")
 set(CPACK_PACKAGE_VENDOR "${DUPLEXPRINT_PACKAGE_VENDOR}")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Manual duplex printing for printers without automatic double-sided support")
 set(CPACK_PACKAGE_CONTACT "support@easure.example")
-set(CPACK_PACKAGE_VERSION "0.1.0")
+set(CPACK_PACKAGE_VERSION "${DUPLEXPRINT_VERSION}")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/README.md")
 set(CPACK_MONOLITHIC_INSTALL ON)
 

@@ -23,6 +23,8 @@ The release workflow installs Qt in CI, packages the native desktop app with CPa
 - Windows: `.exe`
 - Linux: `.deb`
 
+Package versioning is derived from the Git tag. For example, tag `v0.1.1` produces installers branded as version `0.1.1`.
+
 Those assets are the inputs for Homebrew Cask, Winget, and the GitHub Pages APT repository.
 
 ## Homebrew Cask

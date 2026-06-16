@@ -52,7 +52,14 @@ jobs:
         shell: pwsh
         run: choco install nsis --no-progress
       - name: Configure native project
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DDUPLEXPRINT_BUILD_TESTS=ON -DDUPLEXPRINT_REQUIRE_QT_APP=ON
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DDUPLEXPRINT_BUILD_TESTS=ON \
+            -DDUPLEXPRINT_REQUIRE_QT_APP=ON \
+            -DDUPLEXPRINT_VERSION="${version}"
       - name: Build native project
         run: cmake --build build --config Release
       - name: Test native core
