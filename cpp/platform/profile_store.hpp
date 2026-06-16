@@ -13,7 +13,10 @@ class ProfileStore {
   virtual ~ProfileStore() = default;
 
   [[nodiscard]] virtual std::vector<core::PrinterProfile> list() const = 0;
-  [[nodiscard]] virtual std::optional<core::PrinterProfile> get(const std::string& printer_name) const = 0;
+  [[nodiscard]] virtual std::optional<core::PrinterProfile> get(
+      const std::string& manufacturer,
+      const std::string& model,
+      const std::string& printer_name) const = 0;
   virtual void save(const core::PrinterProfile& profile) = 0;
 };
 

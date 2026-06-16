@@ -11,7 +11,10 @@ class FilesystemProfileStore : public ProfileStore {
   explicit FilesystemProfileStore(std::filesystem::path file_path);
 
   [[nodiscard]] std::vector<core::PrinterProfile> list() const override;
-  [[nodiscard]] std::optional<core::PrinterProfile> get(const std::string& printer_name) const override;
+  [[nodiscard]] std::optional<core::PrinterProfile> get(
+      const std::string& manufacturer,
+      const std::string& model,
+      const std::string& printer_name) const override;
   void save(const core::PrinterProfile& profile) override;
 
  private:

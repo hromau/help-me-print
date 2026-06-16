@@ -10,7 +10,7 @@ PrinterProfileResolver::PrinterProfileResolver(
     : local_store_(local_store), cloud_repository_(cloud_repository) {}
 
 ResolvedPrinter PrinterProfileResolver::resolve(const core::PrinterInfo& printer) const {
-  if (const auto local = local_store_.get(printer.name)) {
+  if (const auto local = local_store_.get(printer.manufacturer, printer.model, printer.name)) {
     auto resolved_printer = printer;
     resolved_printer.training_state = local->source == core::ProfileSource::Cloud
         ? core::PrinterTrainingState::TrainedCloudOverriddenLocal

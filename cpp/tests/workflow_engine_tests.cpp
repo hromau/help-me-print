@@ -85,6 +85,7 @@ PrinterProfile same_stack_profile() {
       .printer_name = "HP Smart Tank 580",
       .manufacturer = "HP",
       .model = "Smart Tank 580",
+      .normalized_key = "hp:smart tank 580",
       .output_face = OutputFace::Up,
       .first_pass_parity = PageParity::Even,
       .second_pass_parity = PageParity::Odd,
@@ -104,6 +105,7 @@ PrinterProfile flip_profile() {
       .printer_name = "HP Smart Tank 580",
       .manufacturer = "HP",
       .model = "Smart Tank 580",
+      .normalized_key = "hp:smart tank 580",
       .output_face = OutputFace::Down,
       .first_pass_parity = PageParity::Odd,
       .second_pass_parity = PageParity::Even,
@@ -184,7 +186,7 @@ void test_filesystem_profile_store() {
   duplexprint::platform::FilesystemProfileStore store(file_path);
   store.save(same_stack_profile());
 
-  const auto saved = store.get("HP Smart Tank 580");
+  const auto saved = store.get("HP", "Smart Tank 580", "HP Smart Tank 580");
   expect_true(saved.has_value(), "filesystem profile store should return saved profile");
   expect_equal(store.list().size(), static_cast<std::size_t>(1), "filesystem profile store list size");
   expect_equal(saved->confidence, 98, "filesystem profile store confidence");

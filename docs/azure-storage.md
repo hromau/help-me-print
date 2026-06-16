@@ -106,7 +106,8 @@ Do not ship a desktop client that writes directly to Table Storage with an embed
 Recommended shape:
 
 1. Desktop app sends printer fingerprint to Easure API.
-2. Easure API reads/writes `PrinterProfiles` table.
+2. Easure API reads/writes canonical `PrinterProfiles` records.
+3. Anonymous desktop submissions land in `PrinterProfileSubmissions` with `pending` status.
 3. API returns either:
    - known profile
    - no match
@@ -116,7 +117,10 @@ For local dev or private experiments, direct storage access is acceptable, but i
 
 ## Minimal entity design
 
-Use one table first: `PrinterProfiles`
+Use two tables:
+
+- `PrinterProfiles` for canonical approved profiles
+- `PrinterProfileSubmissions` for anonymous pending uploads from desktop clients
 
 Partitioning:
 
@@ -215,7 +219,8 @@ Use the `Azure.Data.Tables` SDK from day one. Microsoft documents that the same 
 
 - local printer profiles
 - optional upload/download of known profiles
-- one shared `PrinterProfiles` table
+- one canonical `PrinterProfiles` table
+- one `PrinterProfileSubmissions` table for pending writes
 
 ### V2
 
@@ -240,6 +245,7 @@ Use the `Azure.Data.Tables` SDK from day one. Microsoft documents that the same 
 If you expose an API later, keep it very small:
 
 - `GET /profiles/:manufacturer/:model`
+- `POST /profile-submissions/:manufacturer/:model`
 - `PUT /profiles/:manufacturer/:model`
 - `POST /profiles/:manufacturer/:model/vote`
 

@@ -51,6 +51,7 @@ struct PrinterProfile {
   std::string printer_name;
   std::string manufacturer;
   std::string model;
+  std::string normalized_key;
   OutputFace output_face {OutputFace::Up};
   PageParity first_pass_parity {PageParity::Odd};
   PageParity second_pass_parity {PageParity::Even};

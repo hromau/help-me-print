@@ -7,6 +7,8 @@
 #include <regex>
 #include <sstream>
 
+#include "printer_identity.hpp"
+
 namespace duplexprint::platform {
 namespace {
 
@@ -165,6 +167,8 @@ std::optional<PrinterProfile> parse_profile(const std::string& object) {
       .printer_name = *printer_name,
       .manufacturer = *manufacturer,
       .model = *model,
+      .normalized_key = extract_string(object, "normalizedKey").value_or(
+          PrinterIdentity::normalize_key(*manufacturer, *model)),
       .output_face = parse_output_face(extract_string(object, "outputFace").value_or("up")),
       .first_pass_parity = parse_page_parity(extract_string(object, "firstPassParity").value_or("odd")),
       .second_pass_parity = parse_page_parity(extract_string(object, "secondPassParity").value_or("even")),
@@ -185,6 +189,7 @@ std::string serialize_profile(const PrinterProfile& profile) {
   out << "      \"printerName\": \"" << escape_json(profile.printer_name) << "\",\n";
   out << "      \"manufacturer\": \"" << escape_json(profile.manufacturer) << "\",\n";
   out << "      \"model\": \"" << escape_json(profile.model) << "\",\n";
+  out << "      \"normalizedKey\": \"" << escape_json(profile.normalized_key) << "\",\n";
   out << "      \"outputFace\": \"" << output_face_to_string(profile.output_face) << "\",\n";
   out << "      \"firstPassParity\": \"" << page_parity_to_string(profile.first_pass_parity) << "\",\n";
   out << "      \"secondPassParity\": \"" << page_parity_to_string(profile.second_pass_parity) << "\",\n";
@@ -209,10 +214,15 @@ std::vector<PrinterProfile> FilesystemProfileStore::list() const {
   return read_profiles();
 }
 
-std::optional<PrinterProfile> FilesystemProfileStore::get(const std::string& printer_name) const {
+std::optional<PrinterProfile> FilesystemProfileStore::get(
+    const std::string& manufacturer,
+    const std::string& model,
+    const std::string& printer_name) const {
   const auto profiles = read_profiles();
+  const auto normalized_key = PrinterIdentity::normalize_key(manufacturer, model);
   const auto it = std::find_if(profiles.begin(), profiles.end(), [&](const PrinterProfile& profile) {
-    return profile.printer_name == printer_name;
+    return profile.normalized_key == normalized_key ||
+        (profile.normalized_key.empty() && profile.printer_name == printer_name);
   });
   if (it == profiles.end()) {
     return std::nullopt;
@@ -223,7 +233,8 @@ std::optional<PrinterProfile> FilesystemProfileStore::get(const std::string& pri
 void FilesystemProfileStore::save(const PrinterProfile& profile) {
   auto profiles = read_profiles();
   const auto it = std::find_if(profiles.begin(), profiles.end(), [&](const PrinterProfile& existing) {
-    return existing.printer_name == profile.printer_name;
+    return existing.normalized_key == profile.normalized_key ||
+        (existing.normalized_key.empty() && existing.printer_name == profile.printer_name);
   });
   if (it == profiles.end()) {
     profiles.push_back(profile);

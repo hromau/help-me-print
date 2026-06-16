@@ -11,7 +11,9 @@ Help Me Print is a native cross-platform desktop app for manual duplex printing 
 - Print first and second manual duplex passes
 - Learn printer behavior through a calibration flow
 - Save local printer profiles
+- Normalize local profiles by manufacturer/model
 - Reuse shared cloud profiles when available
+- Submit learned profiles to Easure for pending moderation
 
 ## Tech Stack
 

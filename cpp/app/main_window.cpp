@@ -19,6 +19,7 @@
 #include <sstream>
 
 #include "formatters.hpp"
+#include "printer_identity.hpp"
 
 namespace duplexprint::app {
 namespace {
@@ -214,6 +215,7 @@ core::PrinterProfile MainWindow::make_profile_from_calibration(const core::Print
       .printer_name = printer.name,
       .manufacturer = printer.manufacturer,
       .model = printer.model,
+      .normalized_key = platform::PrinterIdentity::normalize_key(printer.manufacturer, printer.model),
       .output_face = learned.output_face,
       .first_pass_parity = learned.first_pass_parity,
       .second_pass_parity = learned.second_pass_parity,
@@ -235,12 +237,20 @@ void MainWindow::save_training() {
   }
 
   try {
-    profile_store_.save(make_profile_from_calibration(printer->printer));
+    const auto profile = make_profile_from_calibration(printer->printer);
+    profile_store_.save(profile);
+    auto status = QString("Printer learned locally. Future jobs can print immediately.");
+    try {
+      cloud_repository_.save_learned_profile(profile);
+      status = "Printer learned locally and submitted to Easure. Future jobs can print immediately.";
+    } catch (const std::exception&) {
+      status = "Printer learned locally. Easure submission failed, but future local jobs can print immediately.";
+    }
     calibration_workflow_.reset();
     top_sheet_input_->clear();
     stage_ = Stage::Setup;
     refresh_printers();
-    set_status("Printer learned locally. Future jobs can print immediately.");
+    set_status(status);
   } catch (const std::exception& error) {
     QMessageBox::critical(this, "Training failed", error.what());
   }
