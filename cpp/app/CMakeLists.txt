@@ -43,6 +43,12 @@ if(Qt6_FOUND)
     RUNTIME DESTINATION bin
   )
 
+  if(UNIX AND NOT APPLE)
+    install(FILES "${CMAKE_SOURCE_DIR}/packaging/linux/help-me-print.desktop"
+      DESTINATION share/applications
+    )
+  endif()
+
   include(GNUInstallDirs)
   qt_generate_deploy_app_script(
     TARGET duplexprint_qt
