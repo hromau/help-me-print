@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   deploy:
@@ -24,17 +25,25 @@ jobs:
         id: config
         env:
           FUNCTION_APP_NAME: ${{ vars.AZURE_FUNCTIONAPP_NAME }}
-          PUBLISH_PROFILE: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
         run: |
-          if [ -n "$FUNCTION_APP_NAME" ] && [ -n "$PUBLISH_PROFILE" ]; then
+          if [ -n "$FUNCTION_APP_NAME" ] && [ -n "$AZURE_CLIENT_ID" ] && [ -n "$AZURE_TENANT_ID" ] && [ -n "$AZURE_SUBSCRIPTION_ID" ]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "Azure Function deployment is skipped because AZURE_FUNCTIONAPP_NAME or AZURE_FUNCTIONAPP_PUBLISH_PROFILE is missing."
+            echo "Azure Function deployment is skipped because AZURE_FUNCTIONAPP_NAME, AZURE_CLIENT_ID, AZURE_TENANT_ID, or AZURE_SUBSCRIPTION_ID is missing."
           fi
         working-directory: .
       - uses: actions/checkout@v4
         if: steps.config.outputs.enabled == 'true'
+      - uses: azure/login@v2
+        if: steps.config.outputs.enabled == 'true'
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
       - uses: actions/setup-dotnet@v4
         if: steps.config.outputs.enabled == 'true'
         with:
@@ -50,4 +59,3 @@ jobs:
         with:
           app-name: ${{ vars.AZURE_FUNCTIONAPP_NAME }}
           package: api/publish
-          publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
