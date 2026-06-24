@@ -50,7 +50,14 @@ jobs:
       - name: Install Windows packaging tools
         if: runner.os == 'Windows'
         shell: pwsh
-        run: choco install nsis --no-progress
+        run: |
+          choco install nsis --no-progress
+          $nsisBin = Join-Path ${env:ProgramFiles(x86)} "NSIS"
+          $makensis = Join-Path $nsisBin "makensis.exe"
+          if (-not (Test-Path $makensis)) {
+            throw "NSIS compiler was not installed at $makensis"
+          }
+          $nsisBin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - name: Configure native project
         shell: bash
         run: |
@@ -67,11 +74,18 @@ jobs:
       - name: Package native app
         shell: bash
         run: |
+          set -euo pipefail
           cpack --config build/CPackConfig.cmake -G "${{ matrix.cpack-generator }}" -B build/packages
+          echo "Packaged files produced by CPack:"
+          find build/packages -type f | sort
           mkdir -p release
-          find build/packages -maxdepth 1 -type f \
-            \( -name "*.dmg" -o -name "*.exe" -o -name "*.deb" \) \
-            -exec cp {} release/ \;
+          while IFS= read -r package_path; do
+            cp "$package_path" release/
+          done < <(
+            find build/packages -type f \
+              \( -name "*.dmg" -o -name "*.exe" -o -name "*.deb" \) \
+              | sort
+          )
           if [ ! "$(find release -maxdepth 1 -type f | wc -l)" -gt 0 ]; then
             echo "No installable package was produced." >&2
             exit 1
