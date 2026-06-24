@@ -114,6 +114,10 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     steps:
       - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v8
+        with:
+          name: help-me-print-mac
+          path: /tmp/cask-asset
       - name: Check configuration
         id: config
         env:
@@ -135,21 +139,12 @@ jobs:
         run: |
           release_tag="$RELEASE_TAG"
           version="${release_tag#v}"
-          asset_url=""
-          asset_name=""
-          for attempt in 1 2 3 4 5 6; do
-            asset_url="$(gh release view "$release_tag" --json assets --jq '.assets[] | select(.name | endswith(".dmg")) | .browser_download_url' | head -n 1)"
-            asset_name="$(gh release view "$release_tag" --json assets --jq '.assets[] | select(.name | endswith(".dmg")) | .name' | head -n 1)"
-            if [ -n "$asset_url" ] && [ -n "$asset_name" ]; then
-              break
-            fi
-            sleep 10
-          done
+          asset_name="$(find /tmp/cask-asset -maxdepth 1 -type f -name '*.dmg' -exec basename {} \; | head -n 1)"
+          asset_url="https://github.com/${{ github.repository }}/releases/download/${release_tag}/${asset_name}"
           if [ -z "$asset_url" ] || [ -z "$asset_name" ]; then
-            echo "No .dmg asset found in GitHub release $release_tag." >&2
+            echo "No .dmg artifact found for Homebrew publishing in workflow run $GITHUB_RUN_ID." >&2
             exit 1
           fi
-          gh release download "$release_tag" --pattern "$asset_name" --dir /tmp/cask-asset
           sha="$(shasum -a 256 "/tmp/cask-asset/$asset_name" | awk '{print $1}')"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "url=$asset_url" >> "$GITHUB_OUTPUT"
