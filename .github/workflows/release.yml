@@ -135,8 +135,16 @@ jobs:
         run: |
           release_tag="$RELEASE_TAG"
           version="${release_tag#v}"
-          asset_url="$(gh release view "$release_tag" --json assets --jq '.assets[] | select(.name | endswith(".dmg")) | .browser_download_url' | head -n 1)"
-          asset_name="$(gh release view "$release_tag" --json assets --jq '.assets[] | select(.name | endswith(".dmg")) | .name' | head -n 1)"
+          asset_url=""
+          asset_name=""
+          for attempt in 1 2 3 4 5 6; do
+            asset_url="$(gh release view "$release_tag" --json assets --jq '.assets[] | select(.name | endswith(".dmg")) | .browser_download_url' | head -n 1)"
+            asset_name="$(gh release view "$release_tag" --json assets --jq '.assets[] | select(.name | endswith(".dmg")) | .name' | head -n 1)"
+            if [ -n "$asset_url" ] && [ -n "$asset_name" ]; then
+              break
+            fi
+            sleep 10
+          done
           if [ -z "$asset_url" ] || [ -z "$asset_name" ]; then
             echo "No .dmg asset found in GitHub release $release_tag." >&2
             exit 1
