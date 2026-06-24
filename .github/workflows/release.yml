@@ -196,7 +196,7 @@ jobs:
             desc "Manual duplex printing for printers without automatic double-sided support"
             homepage "https://github.com/hromau/help-me-print"
 
-            app "Help Me Print.app"
+            app "help-me-print.app"
           end
           RUBY
           sed -i "s#__VERSION__#${{ steps.meta.outputs.version }}#g" tap/Casks/help-me-print.rb
