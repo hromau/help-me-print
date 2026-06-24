@@ -14,6 +14,12 @@ release
 api/local.settings.json
 .env
 .env.*
+.agents/
+.codex/
+AGENTS.md
+*.doc
+*.docx
+*.pdf
 
 # .NET build output
 api/bin
