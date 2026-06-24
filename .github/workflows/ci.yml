@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  api:
+    name: Easure API
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 9.0.x
+      - run: dotnet restore api/Easure.PrintProfiles.Api.csproj
+      - run: dotnet build api/Easure.PrintProfiles.Api.csproj --configuration Release --no-restore
+      - run: dotnet test api/tests/Easure.PrintProfiles.Api.Tests.csproj --configuration Release
+
+  cpp:
+    name: C++ core
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: cmake -S . -B build
+      - run: cmake --build build
+      - run: ctest --test-dir build --output-on-failure
+
+  native-qt:
+    name: Native Qt app
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: "6.7.2"
+          host: linux
+          target: desktop
+          modules: qtpdf
+          cache: true
+      - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DDUPLEXPRINT_REQUIRE_QT_APP=ON
+      - run: cmake --build build --target duplexprint_qt --config Release

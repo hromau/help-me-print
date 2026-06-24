@@ -1,0 +1,110 @@
+name: Publish APT Repository
+
+on:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release tag to publish, for example v0.1.1
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  apt:
+    name: Publish deb to gh-pages apt repo
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Check configuration
+        id: config
+        env:
+          APT_GPG_PRIVATE_KEY: ${{ secrets.APT_GPG_PRIVATE_KEY }}
+          APT_REPOSITORY: ${{ vars.APT_REPOSITORY }}
+          APT_REPOSITORY_TOKEN: ${{ secrets.APT_REPOSITORY_TOKEN }}
+        run: |
+          if [ -n "$APT_GPG_PRIVATE_KEY" ] && [ -n "$APT_REPOSITORY" ] && [ -n "$APT_REPOSITORY_TOKEN" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "APT publishing is skipped because APT_GPG_PRIVATE_KEY, APT_REPOSITORY, or APT_REPOSITORY_TOKEN is missing."
+          fi
+      - name: Prepare gh-pages worktree
+        if: steps.config.outputs.enabled == 'true'
+        env:
+          APT_REPOSITORY: ${{ vars.APT_REPOSITORY }}
+          APT_REPOSITORY_TOKEN: ${{ secrets.APT_REPOSITORY_TOKEN }}
+        run: |
+          remote_url="https://x-access-token:${APT_REPOSITORY_TOKEN}@github.com/${APT_REPOSITORY}.git"
+          if git ls-remote --exit-code --heads "$remote_url" gh-pages >/dev/null 2>&1; then
+            git clone --branch gh-pages --depth 1 "$remote_url" pages
+          else
+            mkdir -p pages
+            git -C pages init
+            git -C pages checkout --orphan gh-pages
+            git -C pages remote add origin "$remote_url"
+          fi
+      - name: Download deb
+        if: steps.config.outputs.enabled == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          INPUT_RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          mkdir -p /tmp/apt-assets
+          release_tag="${INPUT_RELEASE_TAG:-$RELEASE_TAG}"
+          if [ -z "$release_tag" ]; then
+            release_tag="$(gh release list --limit 1 --json tagName --jq '.[0].tagName')"
+          fi
+          gh release download "$release_tag" --pattern "*.deb" --dir /tmp/apt-assets
+      - name: Import signing key
+        if: steps.config.outputs.enabled == 'true'
+        env:
+          APT_GPG_PRIVATE_KEY: ${{ secrets.APT_GPG_PRIVATE_KEY }}
+          APT_GPG_PASSPHRASE: ${{ secrets.APT_GPG_PASSPHRASE }}
+        run: |
+          if [ -z "$APT_GPG_PASSPHRASE" ]; then
+            echo "APT_GPG_PASSPHRASE is empty or unavailable in this workflow context." >&2
+            exit 1
+          fi
+          mkdir -p ~/.gnupg
+          chmod 700 ~/.gnupg
+          printf 'pinentry-mode loopback\n' > ~/.gnupg/gpg.conf
+          echo "$APT_GPG_PRIVATE_KEY" | gpg --batch --pinentry-mode loopback --passphrase "$APT_GPG_PASSPHRASE" --import
+      - name: Build apt repository
+        if: steps.config.outputs.enabled == 'true'
+        env:
+          APT_GPG_PASSPHRASE: ${{ secrets.APT_GPG_PASSPHRASE }}
+        run: |
+          set -e
+          sudo apt-get update
+          sudo apt-get install -y apt-utils dpkg-dev
+          mkdir -p pages/apt/pool/main/h/help-me-print pages/apt/dists/stable/main/binary-amd64
+          cp /tmp/apt-assets/*.deb pages/apt/pool/main/h/help-me-print/
+          cd pages/apt
+          dpkg-scanpackages --arch amd64 pool > dists/stable/main/binary-amd64/Packages
+          gzip -kf dists/stable/main/binary-amd64/Packages
+          apt-ftparchive release dists/stable > dists/stable/Release
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$APT_GPG_PASSPHRASE" --clearsign -o dists/stable/InRelease dists/stable/Release
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$APT_GPG_PASSPHRASE" -abs -o dists/stable/Release.gpg dists/stable/Release
+          gpg --batch --yes --armor --export > help-me-print-archive-keyring.asc
+      - name: Commit and push
+        if: steps.config.outputs.enabled == 'true'
+        working-directory: pages
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          INPUT_RELEASE_TAG: ${{ inputs.release_tag }}
+          APT_REPOSITORY: ${{ vars.APT_REPOSITORY }}
+        run: |
+          release_tag="${INPUT_RELEASE_TAG:-$RELEASE_TAG}"
+          if [ -z "$release_tag" ]; then
+            release_tag="$(date +%Y%m%d%H%M%S)"
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apt
+          git commit -m "Publish apt package for ${release_tag}" || exit 0
+          git push origin gh-pages

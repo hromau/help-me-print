@@ -1,0 +1,56 @@
+name: Publish Winget
+
+on:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release tag to publish, for example v0.1.1
+        required: false
+      bootstrap_note:
+        description: One-time reminder for the first winget submission
+        required: false
+        default: "Initial package must already exist in microsoft/winget-pkgs"
+
+permissions:
+  contents: read
+
+jobs:
+  winget:
+    name: Submit winget manifest
+    runs-on: windows-latest
+    steps:
+      - name: Check configuration
+        id: config
+        shell: bash
+        env:
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+          WINGET_AUTOMATION_ENABLED: ${{ vars.WINGET_AUTOMATION_ENABLED }}
+        run: |
+          if [ -n "$WINGET_TOKEN" ] && [ "$WINGET_AUTOMATION_ENABLED" = "true" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          elif [ -n "$WINGET_TOKEN" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Winget publishing is skipped because WINGET_AUTOMATION_ENABLED is not set to true."
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Winget publishing is skipped because WINGET_TOKEN is missing."
+          fi
+      - name: Explain first submission requirement
+        if: steps.config.outputs.enabled != 'true'
+        shell: bash
+        run: |
+          cat <<'EOF'
+          WinGet Releaser only updates existing package identifiers.
+          For the first release of Easure.HelpMePrint, create the initial manifest in microsoft/winget-pkgs manually.
+          After that initial submission is merged, set repository variable WINGET_AUTOMATION_ENABLED=true, rerun this workflow, and future releases can be automated.
+          EOF
+      - uses: vedantmgoyal2009/winget-releaser@v2
+        if: steps.config.outputs.enabled == 'true'
+        with:
+          identifier: Easure.HelpMePrint
+          installers-regex: '\.exe$'
+          release-tag: ${{ inputs.release_tag }}
+          token: ${{ secrets.WINGET_TOKEN }}

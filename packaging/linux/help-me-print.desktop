@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Help Me Print
+GenericName=Manual Duplex Printing
+Comment=Manual duplex printing for printers without automatic double-sided support
+Exec=help-me-print
+Icon=help-me-print
+Terminal=false
+Categories=Office;Utility;Printing;

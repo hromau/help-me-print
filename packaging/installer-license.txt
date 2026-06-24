@@ -1,0 +1,19 @@
+Help Me Print Installer Terms
+
+Copyright (c) Easure.
+
+This installer sets up Help Me Print on your computer.
+
+You may install and use this software for evaluation and normal end-user use.
+You may not redistribute, modify, reverse engineer, or resell this software
+except with prior written permission from Easure.
+
+The software is provided "as is", without warranties or conditions of any kind,
+express or implied, including merchantability, fitness for a particular purpose,
+and noninfringement.
+
+To the maximum extent permitted by law, Easure is not liable for any damages,
+data loss, printing errors, business interruption, or other claims arising from
+the use of this software.
+
+If you do not agree to these terms, cancel the installation.
