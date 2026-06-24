@@ -49,15 +49,16 @@ GET  /profiles
 
 Access:
 
-- `GET /profiles/{manufacturer}/{model}` is anonymous for desktop clients.
-- `POST /profile-submissions/{manufacturer}/{model}` is anonymous and stores a `pending` submission in a separate table.
+- `GET /profiles/{manufacturer}/{model}` is public, but rate-limited per client IP.
+- `POST /profile-submissions/{manufacturer}/{model}` is public, rate-limited per client IP, and stores a `pending` submission in a separate table.
   If enough `pending` submissions already exist for the same `normalizedKey` with identical duplex settings, the API auto-promotes that configuration into `PrinterProfiles` and marks those submissions as `approved`.
   If a canonical profile already exists with the same settings, the API increments its `votes` counter and marks the new submission as `approved`.
   If submissions for the same `normalizedKey` disagree on duplex settings, they remain in the submissions table for later resolution and are not auto-promoted.
   The promotion threshold is controlled by `PRINTER_PROFILE_APPROVAL_VOTES` and defaults to `3`.
-- `PUT /profiles/{manufacturer}/{model}` requires a function key.
-- `POST /profiles/{manufacturer}/{model}/vote` requires a function key.
-- `GET /profiles` requires a function key and returns at most 100 profiles.
+- `PUT /profiles/{manufacturer}/{model}` requires the `X-Api-Key` header.
+- `POST /profiles/{manufacturer}/{model}/vote` requires the `X-Api-Key` header.
+- `GET /profiles` requires the `X-Api-Key` header and returns at most 100 profiles.
+- All endpoints are rate-limited per client IP. Defaults: `120` read requests/minute and `30` write requests/minute.
 
 ## Required app settings
 
@@ -66,6 +67,10 @@ AZURE_TABLE_CONNECTION_STRING=<storage connection string>
 PRINTER_PROFILES_TABLE=PrinterProfiles
 PRINTER_PROFILE_SUBMISSIONS_TABLE=PrinterProfileSubmissions
 PRINTER_PROFILE_APPROVAL_VOTES=3
+API_ACCESS_KEY=<long random secret>
+RATE_LIMIT_WINDOW_SECONDS=60
+RATE_LIMIT_READ_REQUESTS=120
+RATE_LIMIT_WRITE_REQUESTS=30
 ```
 
 The desktop app must not contain the Azure Storage connection string. It should call the Easure API instead.
@@ -83,7 +88,11 @@ Create `api/local.settings.json` locally:
     "AZURE_TABLE_CONNECTION_STRING": "<storage connection string>",
     "PRINTER_PROFILES_TABLE": "PrinterProfiles",
     "PRINTER_PROFILE_SUBMISSIONS_TABLE": "PrinterProfileSubmissions",
-    "PRINTER_PROFILE_APPROVAL_VOTES": "3"
+    "PRINTER_PROFILE_APPROVAL_VOTES": "3",
+    "API_ACCESS_KEY": "<long random secret>",
+    "RATE_LIMIT_WINDOW_SECONDS": "60",
+    "RATE_LIMIT_READ_REQUESTS": "120",
+    "RATE_LIMIT_WRITE_REQUESTS": "30"
   }
 }
 ```
@@ -135,7 +144,11 @@ az functionapp config appsettings set \
     AZURE_TABLE_CONNECTION_STRING="<connection-string>" \
     PRINTER_PROFILES_TABLE="PrinterProfiles" \
     PRINTER_PROFILE_SUBMISSIONS_TABLE="PrinterProfileSubmissions" \
-    PRINTER_PROFILE_APPROVAL_VOTES="3"
+    PRINTER_PROFILE_APPROVAL_VOTES="3" \
+    API_ACCESS_KEY="<long-random-secret>" \
+    RATE_LIMIT_WINDOW_SECONDS="60" \
+    RATE_LIMIT_READ_REQUESTS="120" \
+    RATE_LIMIT_WRITE_REQUESTS="30"
 ```
 
 Deploy from `api/`:

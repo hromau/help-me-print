@@ -19,6 +19,11 @@ public sealed class PrinterProfilesFunctions
         string manufacturer,
         string model)
     {
+        if (RateLimitGuard.Validate(request, "read") is { } rateLimited)
+        {
+            return rateLimited;
+        }
+
         try
         {
             var (partitionKey, rowKey) = ProfileModel.TableKeys(manufacturer, model);
@@ -37,10 +42,20 @@ public sealed class PrinterProfilesFunctions
 
     [Function("savePrinterProfile")]
     public async Task<IActionResult> SaveProfile(
-        [HttpTrigger(AuthorizationLevel.Function, "put", Route = "profiles/{manufacturer}/{model}")] HttpRequest request,
+        [HttpTrigger(AuthorizationLevel.Anonymous, "put", Route = "profiles/{manufacturer}/{model}")] HttpRequest request,
         string manufacturer,
         string model)
     {
+        if (RateLimitGuard.Validate(request, "write") is { } rateLimited)
+        {
+            return rateLimited;
+        }
+
+        if (ApiKeyAuth.Validate(request) is { } unauthorized)
+        {
+            return unauthorized;
+        }
+
         try
         {
             var body = await request.ReadFromJsonAsync<ProfileRequest>() ?? throw new ArgumentException("JSON body is required");
@@ -60,6 +75,11 @@ public sealed class PrinterProfilesFunctions
         string manufacturer,
         string model)
     {
+        if (RateLimitGuard.Validate(request, "write") is { } rateLimited)
+        {
+            return rateLimited;
+        }
+
         try
         {
             var body = await request.ReadFromJsonAsync<ProfileRequest>() ?? throw new ArgumentException("JSON body is required");
@@ -170,10 +190,20 @@ public sealed class PrinterProfilesFunctions
 
     [Function("votePrinterProfile")]
     public async Task<IActionResult> VoteProfile(
-        [HttpTrigger(AuthorizationLevel.Function, "post", Route = "profiles/{manufacturer}/{model}/vote")] HttpRequest request,
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "profiles/{manufacturer}/{model}/vote")] HttpRequest request,
         string manufacturer,
         string model)
     {
+        if (RateLimitGuard.Validate(request, "write") is { } rateLimited)
+        {
+            return rateLimited;
+        }
+
+        if (ApiKeyAuth.Validate(request) is { } unauthorized)
+        {
+            return unauthorized;
+        }
+
         try
         {
             var (partitionKey, rowKey) = ProfileModel.TableKeys(manufacturer, model);
@@ -202,8 +232,18 @@ public sealed class PrinterProfilesFunctions
 
     [Function("listPrinterProfiles")]
     public IActionResult ListProfiles(
-        [HttpTrigger(AuthorizationLevel.Function, "get", Route = "profiles")] HttpRequest request)
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "profiles")] HttpRequest request)
     {
+        if (RateLimitGuard.Validate(request, "read") is { } rateLimited)
+        {
+            return rateLimited;
+        }
+
+        if (ApiKeyAuth.Validate(request) is { } unauthorized)
+        {
+            return unauthorized;
+        }
+
         var profiles = Table()
             .Query<TableEntity>()
             .Take(100)

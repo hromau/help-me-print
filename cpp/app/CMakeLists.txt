@@ -3,9 +3,9 @@ find_package(Qt6 COMPONENTS Widgets Pdf Network QUIET)
 if(Qt6_FOUND)
   qt_standard_project_setup()
 
-  qt_add_executable(duplexprint_qt
-    MANUAL_FINALIZATION
-    MACOSX_BUNDLE
+  set(app_icon_png "${CMAKE_SOURCE_DIR}/assets/icons/png/icon-256.png")
+  set(app_icon_windows_rc "${CMAKE_SOURCE_DIR}/packaging/windows/help-me-print.rc")
+  set(app_sources
     main.cpp
     main_window.cpp
     main_window.hpp
@@ -19,6 +19,26 @@ if(Qt6_FOUND)
     qt_print_service.hpp
     qt_printer_service.cpp
     qt_printer_service.hpp
+  )
+
+  if(WIN32)
+    list(APPEND app_sources "${app_icon_windows_rc}")
+  endif()
+
+  set_source_files_properties("${app_icon_png}" PROPERTIES
+    QT_RESOURCE_ALIAS "app-icon-256.png"
+  )
+
+  qt_add_executable(duplexprint_qt
+    MANUAL_FINALIZATION
+    MACOSX_BUNDLE
+    ${app_sources}
+  )
+
+  qt_add_resources(duplexprint_qt "duplexprint_icons"
+    PREFIX "/icons"
+    FILES
+      "${app_icon_png}"
   )
 
   target_link_libraries(duplexprint_qt
@@ -46,6 +66,10 @@ if(Qt6_FOUND)
   if(UNIX AND NOT APPLE)
     install(FILES "${CMAKE_SOURCE_DIR}/packaging/linux/help-me-print.desktop"
       DESTINATION share/applications
+    )
+    install(FILES "${app_icon_png}"
+      DESTINATION share/icons/hicolor/256x256/apps
+      RENAME help-me-print.png
     )
   endif()
 
