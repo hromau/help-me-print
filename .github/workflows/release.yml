@@ -137,6 +137,10 @@ jobs:
           version="${release_tag#v}"
           asset_url="$(gh release view "$release_tag" --json assets --jq '.assets[] | select(.name | endswith(".dmg")) | .browser_download_url' | head -n 1)"
           asset_name="$(gh release view "$release_tag" --json assets --jq '.assets[] | select(.name | endswith(".dmg")) | .name' | head -n 1)"
+          if [ -z "$asset_url" ] || [ -z "$asset_name" ]; then
+            echo "No .dmg asset found in GitHub release $release_tag." >&2
+            exit 1
+          fi
           gh release download "$release_tag" --pattern "$asset_name" --dir /tmp/cask-asset
           sha="$(shasum -a 256 "/tmp/cask-asset/$asset_name" | awk '{print $1}')"
           echo "version=$version" >> "$GITHUB_OUTPUT"
@@ -264,6 +268,7 @@ jobs:
           apt-ftparchive release dists/stable > dists/stable/Release
           gpg --batch --yes --pinentry-mode loopback --passphrase "$APT_GPG_PASSPHRASE" --clearsign -o dists/stable/InRelease dists/stable/Release
           gpg --batch --yes --pinentry-mode loopback --passphrase "$APT_GPG_PASSPHRASE" -abs -o dists/stable/Release.gpg dists/stable/Release
+          gpg --batch --yes --armor --export > help-me-print-archive-keyring.asc
       - name: Commit and push
         if: steps.config.outputs.enabled == 'true'
         working-directory: pages

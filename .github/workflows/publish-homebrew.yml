@@ -54,6 +54,10 @@ jobs:
           INPUT_SHA256: ${{ inputs.sha256 }}
         run: |
           if [ -n "$INPUT_VERSION" ]; then
+            if [ -z "$INPUT_DMG_URL" ] || [ -z "$INPUT_SHA256" ]; then
+              echo "workflow_dispatch with version requires both dmg_url and sha256." >&2
+              exit 1
+            fi
             echo "version=$INPUT_VERSION" >> "$GITHUB_OUTPUT"
             echo "url=$INPUT_DMG_URL" >> "$GITHUB_OUTPUT"
             echo "sha256=$INPUT_SHA256" >> "$GITHUB_OUTPUT"
@@ -66,6 +70,10 @@ jobs:
           version="${release_tag#v}"
           asset_url="$(gh release view "$release_tag" --json assets --jq '.assets[] | select(.name | endswith(".dmg")) | .browser_download_url' | head -n 1)"
           asset_name="$(gh release view "$release_tag" --json assets --jq '.assets[] | select(.name | endswith(".dmg")) | .name' | head -n 1)"
+          if [ -z "$asset_url" ] || [ -z "$asset_name" ]; then
+            echo "No .dmg asset found in GitHub release $release_tag." >&2
+            exit 1
+          fi
           gh release download "$release_tag" --pattern "$asset_name" --dir /tmp/cask-asset
           sha="$(shasum -a 256 "/tmp/cask-asset/$asset_name" | awk '{print $1}')"
           echo "version=$version" >> "$GITHUB_OUTPUT"
