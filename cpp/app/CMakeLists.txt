@@ -1,9 +1,10 @@
-find_package(Qt6 COMPONENTS Widgets Pdf Network QUIET)
+find_package(Qt6 COMPONENTS Widgets Pdf PrintSupport Network QUIET)
 
 if(Qt6_FOUND)
   qt_standard_project_setup()
 
   set(app_icon_png "${CMAKE_SOURCE_DIR}/assets/icons/png/icon-256.png")
+  set(app_icon_icns "${CMAKE_SOURCE_DIR}/assets/icons/help-me-print.icns")
   set(app_icon_windows_rc "${CMAKE_SOURCE_DIR}/packaging/windows/help-me-print.rc")
   set(app_sources
     main.cpp
@@ -23,6 +24,12 @@ if(Qt6_FOUND)
 
   if(WIN32)
     list(APPEND app_sources "${app_icon_windows_rc}")
+  endif()
+  if(APPLE)
+    list(APPEND app_sources "${app_icon_icns}")
+    set_source_files_properties("${app_icon_icns}" PROPERTIES
+      MACOSX_PACKAGE_LOCATION "Resources"
+    )
   endif()
 
   set_source_files_properties("${app_icon_png}" PROPERTIES
@@ -45,6 +52,7 @@ if(Qt6_FOUND)
     PRIVATE
       Qt6::Widgets
       Qt6::Pdf
+      Qt6::PrintSupport
       Qt6::Network
       duplexprint_core
       duplexprint_cloud
@@ -56,6 +64,7 @@ if(Qt6_FOUND)
     WIN32_EXECUTABLE TRUE
     MACOSX_BUNDLE_BUNDLE_NAME "Help Me Print"
     MACOSX_BUNDLE_GUI_IDENTIFIER "com.easure.helpmeprint"
+    MACOSX_BUNDLE_ICON_FILE "help-me-print.icns"
   )
 
   install(TARGETS duplexprint_qt
@@ -84,7 +93,7 @@ if(Qt6_FOUND)
   qt_finalize_executable(duplexprint_qt)
 else()
   if(DUPLEXPRINT_REQUIRE_QT_APP)
-    message(FATAL_ERROR "Qt6 Widgets/Pdf/Network not found; cannot create duplexprint_qt target.")
+    message(FATAL_ERROR "Qt6 Widgets/Pdf/PrintSupport/Network not found; cannot create duplexprint_qt target.")
   endif()
-  message(STATUS "Qt6 Widgets/Pdf/Network not found; skipping native UI target.")
+  message(STATUS "Qt6 Widgets/Pdf/PrintSupport/Network not found; skipping native UI target.")
 endif()

@@ -120,3 +120,9 @@ Configure:
 - Secret `AZURE_FUNCTIONAPP_PUBLISH_PROFILE`: publish profile XML from the Azure Function App
 
 Then `publish-api` deploys changes under `api/` automatically from `main`.
+
+## Static landing page
+
+The SEO landing page lives under `site/` and is published directly to Azure Storage Static Website with Azure CLI.
+
+Deployment setup and post-deploy SEO checks are documented in [docs/static-site.md](/Users/siarheih/Documents/Projects/help-me-print/docs/static-site.md:1).

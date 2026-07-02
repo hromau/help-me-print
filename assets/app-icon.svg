@@ -22,28 +22,32 @@
       <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_1_1"/>
       <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_1_1" result="shape"/>
     </filter>
+    <clipPath id="iconShape">
+      <rect width="1024" height="1024" rx="228" fill="white"/>
+    </clipPath>
   </defs>
-  <rect width="1024" height="1024" rx="220" fill="url(#bg)"/>
-  <rect x="28" y="28" width="968" height="968" rx="192" stroke="#D8EEFF" stroke-opacity="0.18" stroke-width="8"/>
+  <g clip-path="url(#iconShape)">
+    <rect width="1024" height="1024" fill="url(#bg)"/>
 
-  <g filter="url(#cardShadow)">
-    <g transform="translate(566 282) rotate(10)">
-      <rect x="0" y="0" width="264" height="330" rx="34" fill="url(#card)"/>
-      <text x="132" y="126" text-anchor="middle" font-family="SF Pro Display, Helvetica, Arial, sans-serif" font-size="100" font-weight="600" fill="#5C98F7">2</text>
-      <rect x="60" y="186" width="144" height="16" rx="8" fill="#D4DCEC"/>
-      <rect x="60" y="220" width="156" height="14" rx="7" fill="#DFE5F1"/>
-      <rect x="60" y="252" width="138" height="14" rx="7" fill="#E7EBF4"/>
+    <g filter="url(#cardShadow)">
+      <g transform="translate(566 282) rotate(10)">
+        <rect x="0" y="0" width="264" height="330" rx="34" fill="url(#card)"/>
+        <text x="132" y="126" text-anchor="middle" font-family="SF Pro Display, Helvetica, Arial, sans-serif" font-size="100" font-weight="600" fill="#5C98F7">2</text>
+        <rect x="60" y="186" width="144" height="16" rx="8" fill="#D4DCEC"/>
+        <rect x="60" y="220" width="156" height="14" rx="7" fill="#DFE5F1"/>
+        <rect x="60" y="252" width="138" height="14" rx="7" fill="#E7EBF4"/>
+      </g>
+
+      <g transform="translate(226 190) rotate(-1)">
+        <rect x="0" y="0" width="438" height="566" rx="44" fill="url(#card)"/>
+        <text x="219" y="255" text-anchor="middle" font-family="SF Pro Display, Helvetica, Arial, sans-serif" font-size="170" font-weight="500" fill="#4F90F9">1</text>
+        <rect x="96" y="330" width="216" height="22" rx="11" fill="#DADFEB"/>
+        <rect x="96" y="376" width="188" height="20" rx="10" fill="#E3E7F0"/>
+        <rect x="96" y="420" width="164" height="20" rx="10" fill="#E9ECF3"/>
+      </g>
     </g>
 
-    <g transform="translate(226 190) rotate(-1)">
-      <rect x="0" y="0" width="438" height="566" rx="44" fill="url(#card)"/>
-      <text x="219" y="255" text-anchor="middle" font-family="SF Pro Display, Helvetica, Arial, sans-serif" font-size="170" font-weight="500" fill="#4F90F9">1</text>
-      <rect x="96" y="330" width="216" height="22" rx="11" fill="#DADFEB"/>
-      <rect x="96" y="376" width="188" height="20" rx="10" fill="#E3E7F0"/>
-      <rect x="96" y="420" width="164" height="20" rx="10" fill="#E9ECF3"/>
-    </g>
+    <path d="M322 760C417 834 573 839 704 772" stroke="url(#arrow)" stroke-width="24" stroke-linecap="round"/>
+    <path d="M670 714L764 744L698 822L670 714Z" fill="url(#arrow)"/>
   </g>
-
-  <path d="M322 760C417 834 573 839 704 772" stroke="url(#arrow)" stroke-width="24" stroke-linecap="round"/>
-  <path d="M670 714L764 744L698 822L670 714Z" fill="url(#arrow)"/>
 </svg>

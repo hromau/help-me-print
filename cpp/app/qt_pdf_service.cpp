@@ -2,7 +2,9 @@
 
 #include <QDir>
 #include <QFont>
+#include <QMarginsF>
 #include <QPainter>
+#include <QPageLayout>
 #include <QPageSize>
 #include <QPdfDocument>
 #include <QPdfWriter>
@@ -13,6 +15,8 @@
 namespace duplexprint::app {
 namespace {
 
+constexpr int kPdfDpi = 300;
+
 QString temp_pdf_path(const QString& prefix) {
   const auto temp_dir = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
   QDir().mkpath(temp_dir);
@@ -22,17 +26,17 @@ QString temp_pdf_path(const QString& prefix) {
 void configure_writer(QPdfWriter& writer, QPdfDocument& source) {
   const auto first_page = source.pagePointSize(0);
   writer.setPageSize(QPageSize(first_page, QPageSize::Point));
-  writer.setResolution(144);
+  writer.setPageMargins(QMarginsF(0, 0, 0, 0), QPageLayout::Point);
+  writer.setResolution(kPdfDpi);
 }
 
 void draw_pdf_page(QPainter& painter, QPdfWriter& writer, QPdfDocument& source, const int zero_based_page) {
-  const auto points = source.pagePointSize(zero_based_page);
-  const QSize image_size(static_cast<int>(points.width() * 2.0), static_cast<int>(points.height() * 2.0));
-  const auto image = source.render(zero_based_page, image_size);
+  const auto target = writer.pageLayout().paintRectPixels(writer.resolution());
+  const auto image = source.render(zero_based_page, target.size());
   if (image.isNull()) {
     throw std::runtime_error("Failed to render PDF page.");
   }
-  painter.drawImage(QRectF(QPointF(0, 0), writer.pageLayout().paintRectPoints().size()), image);
+  painter.drawImage(target, image);
 }
 
 }  // namespace
@@ -66,7 +70,7 @@ QString QtPdfService::create_prepared_pass_pdf(
     if (has_output_page) {
       writer.newPage();
     }
-    painter.fillRect(writer.pageLayout().paintRectPoints(), Qt::white);
+    painter.fillRect(writer.pageLayout().paintRectPixels(writer.resolution()), Qt::white);
   }
 
   painter.end();
@@ -77,7 +81,8 @@ QString QtPdfService::create_calibration_pdf() const {
   const auto output_path = temp_pdf_path("help-me-print-calibration");
   QPdfWriter writer(output_path);
   writer.setPageSize(QPageSize(QPageSize::A4));
-  writer.setResolution(144);
+  writer.setPageMargins(QMarginsF(0, 0, 0, 0), QPageLayout::Point);
+  writer.setResolution(kPdfDpi);
 
   QPainter painter(&writer);
   QFont font = painter.font();
@@ -89,8 +94,9 @@ QString QtPdfService::create_calibration_pdf() const {
     if (page > 1) {
       writer.newPage();
     }
-    painter.fillRect(writer.pageLayout().paintRectPoints(), Qt::white);
-    painter.drawText(writer.pageLayout().paintRectPoints(), Qt::AlignCenter, QString::number(page));
+    const auto page_rect = writer.pageLayout().paintRectPixels(writer.resolution());
+    painter.fillRect(page_rect, Qt::white);
+    painter.drawText(page_rect, Qt::AlignCenter, QString::number(page));
   }
 
   painter.end();

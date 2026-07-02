@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://helpmeprintsite7ea1b526.z6.web.core.windows.net/sitemap.xml

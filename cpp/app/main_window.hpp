@@ -16,10 +16,13 @@
 
 QT_BEGIN_NAMESPACE
 class QComboBox;
+class QFrame;
 class QLabel;
 class QLineEdit;
 class QPushButton;
-class QTextEdit;
+class QToolButton;
+class QWidget;
+class QShowEvent;
 QT_END_NAMESPACE
 
 namespace duplexprint::app {
@@ -37,28 +40,35 @@ class MainWindow : public QMainWindow {
   };
 
   void build_ui();
-  void refresh_printers();
+  void refresh_printers(bool announce = false);
   void choose_pdf();
   void run_calibration();
   void save_training();
+  void complete_training(const QString& observed_top_page);
   void run_first_pass();
   void run_second_pass();
   void reset_job();
   void open_support_link();
+  void prompt_for_calibration_result();
+  void prompt_for_second_pass();
   void update_ui();
   void set_status(const QString& message);
+  void sync_window_size();
+  void showEvent(QShowEvent* event) override;
 
   [[nodiscard]] std::optional<platform::ResolvedPrinter> selected_printer() const;
-  [[nodiscard]] core::PrinterProfile make_profile_from_calibration(const core::PrinterInfo& printer) const;
+  [[nodiscard]] core::PrinterProfile make_profile_from_calibration(
+      const core::PrinterInfo& printer,
+      const QString& observed_top_page) const;
 
   QLabel* document_label_ {nullptr};
   QLabel* printer_status_label_ {nullptr};
   QLabel* status_label_ {nullptr};
   QComboBox* printer_combo_ {nullptr};
-  QLineEdit* top_sheet_input_ {nullptr};
-  QTextEdit* plan_view_ {nullptr};
+  QFrame* action_card_ {nullptr};
+  QWidget* footer_container_ {nullptr};
   QPushButton* choose_pdf_button_ {nullptr};
-  QPushButton* refresh_button_ {nullptr};
+  QToolButton* refresh_button_ {nullptr};
   QPushButton* train_button_ {nullptr};
   QPushButton* save_training_button_ {nullptr};
   QPushButton* first_pass_button_ {nullptr};
