@@ -82,13 +82,15 @@ if(Qt6_FOUND)
     )
   endif()
 
-  include(GNUInstallDirs)
-  qt_generate_deploy_app_script(
-    TARGET duplexprint_qt
-    OUTPUT_SCRIPT deploy_qt_app_script
-    NO_UNSUPPORTED_PLATFORM_ERROR
-  )
-  install(SCRIPT "${deploy_qt_app_script}")
+  if(DUPLEXPRINT_DEPLOY_QT_RUNTIME)
+    include(GNUInstallDirs)
+    qt_generate_deploy_app_script(
+      TARGET duplexprint_qt
+      OUTPUT_SCRIPT deploy_qt_app_script
+      NO_UNSUPPORTED_PLATFORM_ERROR
+    )
+    install(SCRIPT "${deploy_qt_app_script}")
+  endif()
 
   qt_finalize_executable(duplexprint_qt)
 else()

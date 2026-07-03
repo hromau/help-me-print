@@ -32,8 +32,37 @@ jobs:
             echo "enabled=false" >> "$GITHUB_OUTPUT"
             echo "APT publishing is skipped because APT_GPG_PRIVATE_KEY, APT_REPOSITORY, or APT_REPOSITORY_TOKEN is missing."
           fi
-      - name: Prepare gh-pages worktree
+      - name: Validate Linux release asset
         if: steps.config.outputs.enabled == 'true'
+        id: validation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          INPUT_RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          mkdir -p /tmp/release-validation
+          release_tag="${INPUT_RELEASE_TAG:-$RELEASE_TAG}"
+          if [ -z "$release_tag" ]; then
+            release_tag="$(gh release list --limit 1 --json tagName --jq '.[0].tagName')"
+          fi
+          if ! gh release download "$release_tag" --pattern "validation-linux.json" --dir /tmp/release-validation; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "APT publishing is skipped because validation-linux.json could not be downloaded from release $release_tag."
+            exit 0
+          fi
+          if [ ! -f /tmp/release-validation/validation-linux.json ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "APT publishing is skipped because the release does not contain validation-linux.json."
+            exit 0
+          fi
+          if [ "$(jq -r '.distributable' /tmp/release-validation/validation-linux.json)" = "true" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "APT publishing is skipped because Linux release validation failed: $(jq -r '.reason' /tmp/release-validation/validation-linux.json)"
+          fi
+      - name: Prepare gh-pages worktree
+        if: steps.config.outputs.enabled == 'true' && steps.validation.outputs.enabled == 'true'
         env:
           APT_REPOSITORY: ${{ vars.APT_REPOSITORY }}
           APT_REPOSITORY_TOKEN: ${{ secrets.APT_REPOSITORY_TOKEN }}
@@ -48,7 +77,7 @@ jobs:
             git -C pages remote add origin "$remote_url"
           fi
       - name: Download deb
-        if: steps.config.outputs.enabled == 'true'
+        if: steps.config.outputs.enabled == 'true' && steps.validation.outputs.enabled == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.event.release.tag_name }}
@@ -61,7 +90,7 @@ jobs:
           fi
           gh release download "$release_tag" --pattern "*.deb" --dir /tmp/apt-assets
       - name: Import signing key
-        if: steps.config.outputs.enabled == 'true'
+        if: steps.config.outputs.enabled == 'true' && steps.validation.outputs.enabled == 'true'
         env:
           APT_GPG_PRIVATE_KEY: ${{ secrets.APT_GPG_PRIVATE_KEY }}
           APT_GPG_PASSPHRASE: ${{ secrets.APT_GPG_PASSPHRASE }}
@@ -75,7 +104,7 @@ jobs:
           printf 'pinentry-mode loopback\n' > ~/.gnupg/gpg.conf
           echo "$APT_GPG_PRIVATE_KEY" | gpg --batch --pinentry-mode loopback --passphrase "$APT_GPG_PASSPHRASE" --import
       - name: Build apt repository
-        if: steps.config.outputs.enabled == 'true'
+        if: steps.config.outputs.enabled == 'true' && steps.validation.outputs.enabled == 'true'
         env:
           APT_GPG_PASSPHRASE: ${{ secrets.APT_GPG_PASSPHRASE }}
         run: |
@@ -92,7 +121,7 @@ jobs:
           gpg --batch --yes --pinentry-mode loopback --passphrase "$APT_GPG_PASSPHRASE" -abs -o dists/stable/Release.gpg dists/stable/Release
           gpg --batch --yes --armor --export > help-me-print-archive-keyring.asc
       - name: Commit and push
-        if: steps.config.outputs.enabled == 'true'
+        if: steps.config.outputs.enabled == 'true' && steps.validation.outputs.enabled == 'true'
         working-directory: pages
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}

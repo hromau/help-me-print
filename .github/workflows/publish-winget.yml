@@ -38,8 +38,39 @@ jobs:
             echo "enabled=false" >> "$GITHUB_OUTPUT"
             echo "Winget publishing is skipped because WINGET_TOKEN is missing."
           fi
+      - name: Validate Windows release asset
+        if: steps.config.outputs.enabled == 'true'
+        id: validation
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          INPUT_RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          $validationDir = Join-Path $env:RUNNER_TEMP "release-validation"
+          New-Item -ItemType Directory -Force -Path $validationDir | Out-Null
+          $releaseTag = if ($env:INPUT_RELEASE_TAG) { $env:INPUT_RELEASE_TAG } elseif ($env:RELEASE_TAG) { $env:RELEASE_TAG } else { (gh release list --limit 1 --json tagName --jq '.[0].tagName') }
+          gh release download $releaseTag --pattern "validation-windows.json" --dir $validationDir
+          if ($LASTEXITCODE -ne 0) {
+            "enabled=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+            Write-Host "Winget publishing is skipped because validation-windows.json could not be downloaded from release $releaseTag."
+            exit 0
+          }
+          $validationPath = Join-Path $validationDir "validation-windows.json"
+          if (-not (Test-Path $validationPath)) {
+            "enabled=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+            Write-Host "Winget publishing is skipped because the release does not contain validation-windows.json."
+            exit 0
+          }
+          $validation = Get-Content $validationPath | ConvertFrom-Json
+          if ($validation.distributable) {
+            "enabled=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          } else {
+            "enabled=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+            Write-Host "Winget publishing is skipped because Windows release validation failed: $($validation.reason)"
+          }
       - name: Explain first submission requirement
-        if: steps.config.outputs.enabled != 'true'
+        if: steps.config.outputs.enabled != 'true' || steps.validation.outputs.enabled != 'true'
         shell: bash
         run: |
           cat <<'EOF'
@@ -48,7 +79,7 @@ jobs:
           After that initial submission is merged, set repository variable WINGET_AUTOMATION_ENABLED=true, rerun this workflow, and future releases can be automated.
           EOF
       - uses: vedantmgoyal2009/winget-releaser@v2
-        if: steps.config.outputs.enabled == 'true'
+        if: steps.config.outputs.enabled == 'true' && steps.validation.outputs.enabled == 'true'
         with:
           identifier: Easure.HelpMePrint
           installers-regex: '\.exe$'

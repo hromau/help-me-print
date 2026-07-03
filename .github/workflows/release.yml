@@ -13,6 +13,7 @@ jobs:
   build:
     name: Package ${{ matrix.platform }}
     runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.allow_failure }}
     strategy:
       fail-fast: false
       matrix:
@@ -22,16 +23,19 @@ jobs:
             qt-host: mac
             qt-target: desktop
             cpack-generator: DragNDrop
+            allow_failure: true
           - platform: windows
             os: windows-latest
             qt-host: windows
             qt-target: desktop
             cpack-generator: NSIS
+            allow_failure: false
           - platform: linux
             os: ubuntu-latest
             qt-host: linux
             qt-target: desktop
             cpack-generator: DEB
+            allow_failure: false
     steps:
       - uses: actions/checkout@v5
       - name: Install Qt
@@ -71,25 +75,166 @@ jobs:
         run: cmake --build build --config Release
       - name: Test native core
         run: ctest --test-dir build --output-on-failure -C Release
+      - name: Configure macOS signing
+        if: runner.os == 'macOS'
+        id: macos_signing
+        shell: bash
+        env:
+          MACOS_CERTIFICATE_NAME: ${{ secrets.MACOS_CERTIFICATE_NAME }}
+          MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          MACOS_NOTARY_APPLE_ID: ${{ secrets.MACOS_NOTARY_APPLE_ID }}
+          MACOS_NOTARY_TEAM_ID: ${{ secrets.MACOS_NOTARY_TEAM_ID }}
+          MACOS_NOTARY_APP_PASSWORD: ${{ secrets.MACOS_NOTARY_APP_PASSWORD }}
+        run: |
+          if [ -n "$MACOS_CERTIFICATE_NAME" ] && [ -n "$MACOS_CERTIFICATE_P12" ] && [ -n "$MACOS_CERTIFICATE_PASSWORD" ] && [ -n "$MACOS_NOTARY_APPLE_ID" ] && [ -n "$MACOS_NOTARY_TEAM_ID" ] && [ -n "$MACOS_NOTARY_APP_PASSWORD" ]; then
+            cert_path="$RUNNER_TEMP/help-me-print-signing.p12"
+            keychain_path="$RUNNER_TEMP/help-me-print-signing.keychain-db"
+            keychain_password="$(uuidgen)"
+            if ! printf '%s' "$MACOS_CERTIFICATE_P12" | base64 --decode > "$cert_path" 2>/dev/null; then
+              printf '%s' "$MACOS_CERTIFICATE_P12" | base64 -D > "$cert_path"
+            fi
+            security create-keychain -p "$keychain_password" "$keychain_path"
+            security set-keychain-settings -lut 21600 "$keychain_path"
+            security unlock-keychain -p "$keychain_password" "$keychain_path"
+            security import "$cert_path" -P "$MACOS_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$keychain_path"
+            security list-keychains -d user -s "$keychain_path"
+            security default-keychain -d user -s "$keychain_path"
+            security set-key-partition-list -S apple-tool:,apple: -s -k "$keychain_password" "$keychain_path"
+            xcrun notarytool store-credentials help-me-print-notary \
+              --apple-id "$MACOS_NOTARY_APPLE_ID" \
+              --team-id "$MACOS_NOTARY_TEAM_ID" \
+              --password "$MACOS_NOTARY_APP_PASSWORD"
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "macOS signing/notarization secrets are not configured; unsigned .dmg will be built and Homebrew publish will be skipped."
+          fi
+      - name: Configure Windows signing
+        if: runner.os == 'Windows'
+        id: windows_signing
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE_PFX: ${{ secrets.WINDOWS_CERTIFICATE_PFX }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          if ($env:WINDOWS_CERTIFICATE_PFX -and $env:WINDOWS_CERTIFICATE_PASSWORD) {
+            $certPath = Join-Path $env:RUNNER_TEMP "help-me-print-signing.pfx"
+            [System.IO.File]::WriteAllBytes($certPath, [System.Convert]::FromBase64String($env:WINDOWS_CERTIFICATE_PFX))
+            "enabled=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+            "cert_path=$certPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          } else {
+            "enabled=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+            Write-Host "Windows signing secrets are not configured; unsigned .exe will be built."
+          }
       - name: Package native app
         shell: bash
+        env:
+          MACOS_CERTIFICATE_NAME: ${{ secrets.MACOS_CERTIFICATE_NAME }}
+          MACOS_NOTARY_PROFILE: help-me-print-notary
         run: |
           set -euo pipefail
-          cpack --config build/CPackConfig.cmake -G "${{ matrix.cpack-generator }}" -B build/packages
-          echo "Packaged files produced by CPack:"
-          find build/packages -type f | sort
           mkdir -p release
-          while IFS= read -r package_path; do
-            cp "$package_path" release/
-          done < <(
-            find build/packages -type f \
-              \( -name "*.dmg" -o -name "*.exe" -o -name "*.deb" \) \
-              | sort
-          )
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            rm -rf stage
+            cmake --install build --prefix stage
+            if [ "${{ steps.macos_signing.outputs.enabled }}" != "true" ]; then
+              unset MACOS_CERTIFICATE_NAME
+              unset MACOS_NOTARY_PROFILE
+            fi
+            ./scripts/package_macos_release.sh stage/help-me-print.app release
+          else
+            cpack --config build/CPackConfig.cmake -G "${{ matrix.cpack-generator }}" -B build/packages
+            echo "Packaged files produced by CPack:"
+            find build/packages -type f | sort
+            while IFS= read -r package_path; do
+              cp "$package_path" release/
+            done < <(
+              find build/packages -type f \
+                \( -name "*.dmg" -o -name "*.exe" -o -name "*.deb" \) \
+                | sort
+            )
+          fi
           if [ ! "$(find release -maxdepth 1 -type f | wc -l)" -gt 0 ]; then
             echo "No installable package was produced." >&2
             exit 1
           fi
+      - name: Sign Windows installer
+        if: runner.os == 'Windows' && steps.windows_signing.outputs.enabled == 'true'
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $signtool = (Get-Command signtool.exe -ErrorAction Stop).Source
+          $installer = Get-ChildItem -Path release -Filter *.exe | Select-Object -First 1
+          if (-not $installer) {
+            throw "No .exe installer found in release directory."
+          }
+          & $signtool sign `
+            /fd SHA256 `
+            /td SHA256 `
+            /tr http://timestamp.digicert.com `
+            /f "${{ steps.windows_signing.outputs.cert_path }}" `
+            /p "$env:WINDOWS_CERTIFICATE_PASSWORD" `
+            /d "Help Me Print" `
+            /du "https://github.com/${{ github.repository }}" `
+            $installer.FullName
+          & $signtool verify /pa /v $installer.FullName
+      - name: Validate Linux package
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          deb_path="$(find release -maxdepth 1 -type f -name '*.deb' | head -n 1)"
+          if [ -z "$deb_path" ]; then
+            echo "No .deb package found in release directory." >&2
+            exit 1
+          fi
+          dpkg-deb --info "$deb_path" >/dev/null
+          dpkg-deb --contents "$deb_path" >/dev/null
+      - name: Write validation metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$RUNNER_OS" in
+            macOS)
+              asset_path="$(find release -maxdepth 1 -type f -name '*.dmg' | head -n 1)"
+              if [ "${{ steps.macos_signing.outputs.enabled }}" = "true" ]; then
+                distributable=true
+                reason="signed and notarized macOS dmg"
+              else
+                distributable=false
+                reason="missing macOS signing/notarization secrets"
+              fi
+              platform=mac
+              ;;
+            Windows)
+              asset_path="$(find release -maxdepth 1 -type f -name '*.exe' | head -n 1)"
+              if [ "${{ steps.windows_signing.outputs.enabled }}" = "true" ]; then
+                distributable=true
+                reason="signed Windows installer"
+              else
+                distributable=true
+                reason="unsigned Windows installer"
+              fi
+              platform=windows
+              ;;
+            Linux)
+              asset_path="$(find release -maxdepth 1 -type f -name '*.deb' | head -n 1)"
+              distributable=true
+              reason="validated deb package"
+              platform=linux
+              ;;
+          esac
+          asset_name="$(basename "$asset_path")"
+          cat > "release/validation-${platform}.json" <<EOF
+          {
+            "platform": "${platform}",
+            "asset_name": "${asset_name}",
+            "distributable": ${distributable},
+            "reason": "${reason}"
+          }
+          EOF
       - name: Generate checksums
         shell: bash
         run: |
@@ -120,218 +265,3 @@ jobs:
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
           files: artifacts/*
-
-  publish-homebrew:
-    name: Publish Homebrew Cask
-    needs: github-release
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/download-artifact@v8
-        with:
-          name: help-me-print-mac
-          path: /tmp/cask-asset
-      - name: Check configuration
-        id: config
-        env:
-          TAP_REPOSITORY: ${{ vars.HOMEBREW_TAP_REPOSITORY }}
-          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-        run: |
-          if [ -n "$TAP_REPOSITORY" ] && [ -n "$TAP_TOKEN" ]; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "Homebrew publishing is skipped because HOMEBREW_TAP_REPOSITORY or HOMEBREW_TAP_TOKEN is missing."
-          fi
-      - name: Resolve release metadata
-        if: steps.config.outputs.enabled == 'true'
-        id: meta
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.ref_name }}
-        run: |
-          release_tag="$RELEASE_TAG"
-          version="${release_tag#v}"
-          asset_name="$(find /tmp/cask-asset -maxdepth 1 -type f -name '*.dmg' -exec basename {} \; | head -n 1)"
-          asset_url="https://github.com/${{ github.repository }}/releases/download/${release_tag}/${asset_name}"
-          if [ -z "$asset_url" ] || [ -z "$asset_name" ]; then
-            echo "No .dmg artifact found for Homebrew publishing in workflow run $GITHUB_RUN_ID." >&2
-            exit 1
-          fi
-          sha="$(shasum -a 256 "/tmp/cask-asset/$asset_name" | awk '{print $1}')"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "url=$asset_url" >> "$GITHUB_OUTPUT"
-          echo "sha256=$sha" >> "$GITHUB_OUTPUT"
-      - name: Prepare tap checkout
-        if: steps.config.outputs.enabled == 'true'
-        id: tap
-        env:
-          TAP_REPOSITORY: ${{ vars.HOMEBREW_TAP_REPOSITORY }}
-          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-        run: |
-          remote_url="https://x-access-token:${TAP_TOKEN}@github.com/${TAP_REPOSITORY}.git"
-          default_branch="$(git ls-remote --symref "$remote_url" HEAD | awk '/^ref:/ {sub("refs/heads/", "", $2); print $2}')"
-          if [ -n "$default_branch" ]; then
-            git clone --branch "$default_branch" --depth 1 "$remote_url" tap
-            echo "branch=$default_branch" >> "$GITHUB_OUTPUT"
-          else
-            mkdir -p tap
-            git -C tap init
-            git -C tap checkout -b main
-            git -C tap remote add origin "$remote_url"
-            echo "branch=main" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Write cask
-        if: steps.config.outputs.enabled == 'true'
-        run: |
-          mkdir -p tap/Casks
-          cat > tap/Casks/help-me-print.rb <<'RUBY'
-          cask "help-me-print" do
-            version "__VERSION__"
-            sha256 "__SHA256__"
-
-            url "__URL__"
-            name "Help Me Print"
-            desc "Manual duplex printing for printers without automatic double-sided support"
-            homepage "https://github.com/hromau/help-me-print"
-
-            app "help-me-print.app"
-          end
-          RUBY
-          sed -i "s#__VERSION__#${{ steps.meta.outputs.version }}#g" tap/Casks/help-me-print.rb
-          sed -i "s#__SHA256__#${{ steps.meta.outputs.sha256 }}#g" tap/Casks/help-me-print.rb
-          sed -i "s#__URL__#${{ steps.meta.outputs.url }}#g" tap/Casks/help-me-print.rb
-      - name: Commit and push
-        if: steps.config.outputs.enabled == 'true'
-        working-directory: tap
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Casks/help-me-print.rb
-          git commit -m "Update Help Me Print to ${{ steps.meta.outputs.version }}" || exit 0
-          git push origin "${{ steps.tap.outputs.branch }}"
-
-  publish-apt:
-    name: Publish APT Repository
-    needs: github-release
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-    steps:
-      - uses: actions/checkout@v5
-      - name: Check configuration
-        id: config
-        env:
-          APT_GPG_PRIVATE_KEY: ${{ secrets.APT_GPG_PRIVATE_KEY }}
-          APT_REPOSITORY: ${{ vars.APT_REPOSITORY }}
-          APT_REPOSITORY_TOKEN: ${{ secrets.APT_REPOSITORY_TOKEN }}
-        run: |
-          if [ -n "$APT_GPG_PRIVATE_KEY" ] && [ -n "$APT_REPOSITORY" ] && [ -n "$APT_REPOSITORY_TOKEN" ]; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "APT publishing is skipped because APT_GPG_PRIVATE_KEY, APT_REPOSITORY, or APT_REPOSITORY_TOKEN is missing."
-          fi
-      - name: Prepare gh-pages worktree
-        if: steps.config.outputs.enabled == 'true'
-        env:
-          APT_REPOSITORY: ${{ vars.APT_REPOSITORY }}
-          APT_REPOSITORY_TOKEN: ${{ secrets.APT_REPOSITORY_TOKEN }}
-        run: |
-          remote_url="https://x-access-token:${APT_REPOSITORY_TOKEN}@github.com/${APT_REPOSITORY}.git"
-          if git ls-remote --exit-code --heads "$remote_url" gh-pages >/dev/null 2>&1; then
-            git clone --branch gh-pages --depth 1 "$remote_url" pages
-          else
-            mkdir -p pages
-            git -C pages init
-            git -C pages checkout --orphan gh-pages
-            git -C pages remote add origin "$remote_url"
-          fi
-      - name: Download deb
-        if: steps.config.outputs.enabled == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.ref_name }}
-        run: |
-          mkdir -p /tmp/apt-assets
-          gh release download "$RELEASE_TAG" --pattern "*.deb" --dir /tmp/apt-assets
-      - name: Import signing key
-        if: steps.config.outputs.enabled == 'true'
-        env:
-          APT_GPG_PRIVATE_KEY: ${{ secrets.APT_GPG_PRIVATE_KEY }}
-          APT_GPG_PASSPHRASE: ${{ secrets.APT_GPG_PASSPHRASE }}
-        run: |
-          if [ -z "$APT_GPG_PASSPHRASE" ]; then
-            echo "APT_GPG_PASSPHRASE is empty or unavailable in this workflow context." >&2
-            exit 1
-          fi
-          mkdir -p ~/.gnupg
-          chmod 700 ~/.gnupg
-          printf 'pinentry-mode loopback\n' > ~/.gnupg/gpg.conf
-          echo "$APT_GPG_PRIVATE_KEY" | gpg --batch --pinentry-mode loopback --passphrase "$APT_GPG_PASSPHRASE" --import
-      - name: Build apt repository
-        if: steps.config.outputs.enabled == 'true'
-        env:
-          APT_GPG_PASSPHRASE: ${{ secrets.APT_GPG_PASSPHRASE }}
-        run: |
-          set -e
-          sudo apt-get update
-          sudo apt-get install -y apt-utils dpkg-dev
-          mkdir -p pages/apt/pool/main/h/help-me-print pages/apt/dists/stable/main/binary-amd64
-          cp /tmp/apt-assets/*.deb pages/apt/pool/main/h/help-me-print/
-          cd pages/apt
-          dpkg-scanpackages --arch amd64 pool > dists/stable/main/binary-amd64/Packages
-          gzip -kf dists/stable/main/binary-amd64/Packages
-          apt-ftparchive release dists/stable > dists/stable/Release
-          gpg --batch --yes --pinentry-mode loopback --passphrase "$APT_GPG_PASSPHRASE" --clearsign -o dists/stable/InRelease dists/stable/Release
-          gpg --batch --yes --pinentry-mode loopback --passphrase "$APT_GPG_PASSPHRASE" -abs -o dists/stable/Release.gpg dists/stable/Release
-          gpg --batch --yes --armor --export > help-me-print-archive-keyring.asc
-      - name: Commit and push
-        if: steps.config.outputs.enabled == 'true'
-        working-directory: pages
-        env:
-          RELEASE_TAG: ${{ github.ref_name }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add apt
-          git commit -m "Publish apt package for ${RELEASE_TAG}" || exit 0
-          git push origin gh-pages
-
-  publish-winget:
-    name: Publish Winget
-    needs: github-release
-    runs-on: windows-latest
-    if: startsWith(github.ref, 'refs/tags/')
-    steps:
-      - name: Check configuration
-        id: config
-        shell: bash
-        env:
-          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
-          WINGET_AUTOMATION_ENABLED: ${{ vars.WINGET_AUTOMATION_ENABLED }}
-        run: |
-          if [ -n "$WINGET_TOKEN" ] && [ "$WINGET_AUTOMATION_ENABLED" = "true" ]; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          elif [ -n "$WINGET_TOKEN" ]; then
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "Winget publishing is skipped because WINGET_AUTOMATION_ENABLED is not set to true."
-          else
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "Winget publishing is skipped because WINGET_TOKEN is missing."
-          fi
-      - name: Explain first submission requirement
-        if: steps.config.outputs.enabled != 'true'
-        shell: bash
-        run: |
-          cat <<'EOF'
-          WinGet Releaser only updates existing package identifiers.
-          For the first release of Easure.HelpMePrint, create the initial manifest in microsoft/winget-pkgs manually.
-          After that initial submission is merged, set repository variable WINGET_AUTOMATION_ENABLED=true, rerun this workflow, and future releases can be automated.
-          EOF
-      - uses: vedantmgoyal2009/winget-releaser@v2
-        if: steps.config.outputs.enabled == 'true'
-        with:
-          identifier: Easure.HelpMePrint
-          installers-regex: '\.exe$'
-          token: ${{ secrets.WINGET_TOKEN }}

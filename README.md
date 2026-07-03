@@ -2,6 +2,29 @@
 
 Help Me Print is a native cross-platform desktop app for manual duplex printing on printers without automatic double-sided support.
 
+## Install
+
+macOS via Homebrew:
+
+```bash
+brew install hromau/tap/help-me-print
+```
+
+This macOS path builds the app from source on the user's machine instead of downloading a quarantined `.app` bundle, which avoids the common Gatekeeper "app is damaged" failure for unsigned Homebrew casks.
+
+Windows via Winget:
+
+```bash
+winget install Easure.HelpMePrint
+```
+
+Linux via APT:
+
+```bash
+sudo apt update
+sudo apt install help-me-print
+```
+
 ## Scope
 
 - Select a PDF

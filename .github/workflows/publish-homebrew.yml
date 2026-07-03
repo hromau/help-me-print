@@ -1,4 +1,4 @@
-name: Publish Homebrew Cask
+name: Publish Homebrew Formula
 
 on:
   release:
@@ -12,18 +12,18 @@ on:
       version:
         description: Release version without leading v
         required: false
-      dmg_url:
-        description: DMG download URL
+      source_url:
+        description: Source tarball URL
         required: false
       sha256:
-        description: DMG sha256
+        description: Source tarball sha256
         required: false
 
 permissions:
   contents: read
 
 jobs:
-  update-cask:
+  update-formula:
     name: Update tap repository
     runs-on: ubuntu-latest
     outputs:
@@ -42,24 +42,25 @@ jobs:
             echo "enabled=false" >> "$GITHUB_OUTPUT"
             echo "Homebrew publishing is skipped because HOMEBREW_TAP_REPOSITORY or HOMEBREW_TAP_TOKEN is missing."
           fi
-      - name: Resolve release metadata
+      - name: Resolve formula metadata
         if: steps.config.outputs.enabled == 'true'
         id: meta
         env:
           GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
           RELEASE_TAG: ${{ github.event.release.tag_name }}
           INPUT_RELEASE_TAG: ${{ inputs.release_tag }}
           INPUT_VERSION: ${{ inputs.version }}
-          INPUT_DMG_URL: ${{ inputs.dmg_url }}
+          INPUT_SOURCE_URL: ${{ inputs.source_url }}
           INPUT_SHA256: ${{ inputs.sha256 }}
         run: |
           if [ -n "$INPUT_VERSION" ]; then
-            if [ -z "$INPUT_DMG_URL" ] || [ -z "$INPUT_SHA256" ]; then
-              echo "workflow_dispatch with version requires both dmg_url and sha256." >&2
+            if [ -z "$INPUT_SOURCE_URL" ] || [ -z "$INPUT_SHA256" ]; then
+              echo "workflow_dispatch with version requires both source_url and sha256." >&2
               exit 1
             fi
             echo "version=$INPUT_VERSION" >> "$GITHUB_OUTPUT"
-            echo "url=$INPUT_DMG_URL" >> "$GITHUB_OUTPUT"
+            echo "url=$INPUT_SOURCE_URL" >> "$GITHUB_OUTPUT"
             echo "sha256=$INPUT_SHA256" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -68,24 +69,15 @@ jobs:
             release_tag="$(gh release list --limit 1 --json tagName --jq '.[0].tagName')"
           fi
           version="${release_tag#v}"
-          asset_url=""
-          asset_name=""
-          for attempt in 1 2 3 4 5 6; do
-            asset_url="$(gh release view "$release_tag" --json assets --jq '.assets[] | select(.name | endswith(".dmg")) | .browser_download_url' | head -n 1)"
-            asset_name="$(gh release view "$release_tag" --json assets --jq '.assets[] | select(.name | endswith(".dmg")) | .name' | head -n 1)"
-            if [ -n "$asset_url" ] && [ -n "$asset_name" ]; then
-              break
-            fi
-            sleep 10
-          done
-          if [ -z "$asset_url" ] || [ -z "$asset_name" ]; then
-            echo "No .dmg asset found in GitHub release $release_tag." >&2
+          if [ -z "$release_tag" ]; then
+            echo "No release tag is available for Homebrew publishing." >&2
             exit 1
           fi
-          gh release download "$release_tag" --pattern "$asset_name" --dir /tmp/cask-asset
-          sha="$(shasum -a 256 "/tmp/cask-asset/$asset_name" | awk '{print $1}')"
+          source_url="https://github.com/${REPOSITORY}/archive/refs/tags/${release_tag}.tar.gz"
+          curl -LfsS "$source_url" -o /tmp/help-me-print-source.tar.gz
+          sha="$(shasum -a 256 /tmp/help-me-print-source.tar.gz | awk '{print $1}')"
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "url=$asset_url" >> "$GITHUB_OUTPUT"
+          echo "url=$source_url" >> "$GITHUB_OUTPUT"
           echo "sha256=$sha" >> "$GITHUB_OUTPUT"
       - name: Prepare tap checkout
         if: steps.config.outputs.enabled == 'true'
@@ -106,32 +98,26 @@ jobs:
             git -C tap remote add origin "$remote_url"
             echo "branch=main" >> "$GITHUB_OUTPUT"
           fi
-      - name: Write cask
+      - name: Write formula
         if: steps.config.outputs.enabled == 'true'
         run: |
-          mkdir -p tap/Casks
-          cat > tap/Casks/help-me-print.rb <<'RUBY'
-          cask "help-me-print" do
-            version "__VERSION__"
-            sha256 "__SHA256__"
-
-            url "__URL__"
-            name "Help Me Print"
-            desc "Manual duplex printing for printers without automatic double-sided support"
-            homepage "https://github.com/hromau/help-me-print"
-
-            app "help-me-print.app"
-          end
-          RUBY
-          sed -i "s#__VERSION__#${{ steps.meta.outputs.version }}#g" tap/Casks/help-me-print.rb
-          sed -i "s#__SHA256__#${{ steps.meta.outputs.sha256 }}#g" tap/Casks/help-me-print.rb
-          sed -i "s#__URL__#${{ steps.meta.outputs.url }}#g" tap/Casks/help-me-print.rb
+          mkdir -p tap/Formula
+          cp packaging/homebrew/help-me-print.rb.template tap/Formula/help-me-print.rb
+          if [ -f tap/Casks/help-me-print.rb ]; then
+            rm -f tap/Casks/help-me-print.rb
+          fi
+          sed -i "s#__VERSION__#${{ steps.meta.outputs.version }}#g" tap/Formula/help-me-print.rb
+          sed -i "s#__SOURCE_SHA256__#${{ steps.meta.outputs.sha256 }}#g" tap/Formula/help-me-print.rb
+          sed -i "s#__SOURCE_URL__#${{ steps.meta.outputs.url }}#g" tap/Formula/help-me-print.rb
       - name: Commit and push
         if: steps.config.outputs.enabled == 'true'
         working-directory: tap
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Casks/help-me-print.rb
+          git add -A Formula
+          if [ -d Casks ] || git ls-files --error-unmatch Casks/help-me-print.rb >/dev/null 2>&1; then
+            git add -A Casks
+          fi
           git commit -m "Update Help Me Print to ${{ steps.meta.outputs.version }}" || exit 0
           git push origin "${{ steps.tap.outputs.branch }}"

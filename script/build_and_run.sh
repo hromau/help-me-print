@@ -13,6 +13,7 @@ pkill -x "$APP_NAME" >/dev/null 2>&1 || true
 
 cmake -S "$ROOT_DIR" -B "$BUILD_DIR"
 cmake --build "$BUILD_DIR" --target duplexprint_qt
+"$ROOT_DIR/scripts/sign_macos_app.sh" "$APP_BUNDLE"
 
 open_app() {
   /usr/bin/open -n "$APP_BUNDLE"

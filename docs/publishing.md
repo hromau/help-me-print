@@ -4,9 +4,68 @@ This project publishes in stages:
 
 1. CI validates the app, API, and C++ core on every push and pull request.
 2. A `v*` tag builds the native C++ project and uploads artifacts to GitHub Releases.
-3. Optional publish workflows update Homebrew, Winget, and an APT repository after native installers are produced.
+3. The GitHub release uploads per-platform validation metadata alongside installers.
+4. Optional publish workflows update Homebrew, Winget, and an APT repository when the required release input is safe to publish.
 
 The release pipeline is intentionally native-first. Desktop distribution uses the C++/Qt application only.
+
+## macOS signing and notarization
+
+Unsigned macOS app bundles are treated as damaged or untrusted when users install them from direct downloads, Homebrew Cask, or other quarantined distribution paths. A plain `.dmg` from CI is not sufficient.
+
+The macOS release job now expects these GitHub Actions secrets before a public drag-and-drop macOS installer should be trusted:
+
+- `MACOS_CERTIFICATE_NAME`: the full Developer ID Application identity name
+- `MACOS_CERTIFICATE_P12`: base64-encoded `.p12` certificate export
+- `MACOS_CERTIFICATE_PASSWORD`: password for the `.p12` export
+- `MACOS_NOTARY_APPLE_ID`: Apple ID used for notarization
+- `MACOS_NOTARY_TEAM_ID`: Apple Developer Team ID
+- `MACOS_NOTARY_APP_PASSWORD`: app-specific password for `notarytool`
+
+When those secrets are present, the workflow:
+
+1. imports the Developer ID certificate into a temporary keychain
+2. installs the staged `.app`, signs it, and packages a `.dmg`
+3. submits the `.dmg` to Apple notarization and staples the result
+4. produces a notarized `.dmg` suitable for direct download
+
+If those secrets are missing, the workflow still produces a macOS artifact for manual validation, but that `.dmg` should not be treated as a safe public installer.
+
+For local development, `script/build_and_run.sh` now re-signs the built `.app` with an ad-hoc signature so the bundle stays internally consistent after rebuilds. That does not replace Developer ID signing or notarization for public distribution.
+
+## Homebrew on macOS without Apple enrollment
+
+The current macOS workaround is to publish a Homebrew formula instead of a Homebrew cask.
+
+That formula builds Help Me Print from the tagged source tarball on the user's Mac and installs:
+
+- `help-me-print.app` into the Homebrew Cellar
+- a `help-me-print` launcher script into `bin/`
+
+Because Homebrew is compiling locally from source instead of downloading a quarantined `.app`, this path does not depend on Apple Developer ID or notarization. It is the cleanest free distribution path for macOS while Apple enrollment is unresolved.
+
+## Windows signing
+
+Windows signing is recommended but not required for automated winget publishing. The release workflow accepts these GitHub Actions secrets when available:
+
+- `WINDOWS_CERTIFICATE_PFX`: base64-encoded Authenticode `.pfx`
+- `WINDOWS_CERTIFICATE_PASSWORD`: password for the `.pfx`
+
+When those secrets are present, the workflow signs the generated `.exe` with `signtool`, verifies the signature, and emits `validation-windows.json` with `reason: "signed Windows installer"`. Without them, the `.exe` is still attached to the GitHub release and the winget publish workflow can continue, but users may see Microsoft SmartScreen warnings because the installer is unsigned.
+
+## Platform independence
+
+The macOS matrix leg is allowed to fail without blocking the Windows and Linux release assets. This keeps APT and winget publish paths moving while macOS signing, notarization, or Apple Developer enrollment are still unresolved.
+
+## Release validation
+
+Each tagged GitHub release now includes:
+
+- `validation-mac.json`
+- `validation-windows.json`
+- `validation-linux.json`
+
+The `winget` and `apt` workflows consume these files and refuse to publish if the corresponding platform asset is not marked `distributable: true`. This prevents a bad GitHub release asset from automatically propagating into those package managers.
 
 ## GitHub Release
 
@@ -25,11 +84,11 @@ The release workflow installs Qt in CI, packages the native desktop app with CPa
 
 Package versioning is derived from the Git tag. For example, tag `v0.1.1` produces installers branded as version `0.1.1`.
 
-Those assets are the inputs for Homebrew Cask, Winget, and the GitHub Pages APT repository.
+Those assets are the inputs for Winget, the GitHub Pages APT repository, and optional direct macOS downloads.
 
-For Homebrew Cask and Winget, the GitHub repository and release assets must be publicly reachable. A private or missing repository, or a release without a public `.dmg` or `.exe`, will prevent downstream package managers from installing the app.
+For Winget, the GitHub repository and release assets must be publicly reachable. A private or missing repository, or a release without a public `.exe`, will prevent downstream package managers from installing the app.
 
-## Homebrew Cask
+## Homebrew Formula
 
 Create a tap repository, for example:
 
@@ -45,18 +104,23 @@ Configure repository variables and secrets in `hromau/help-me-print`:
 The workflow writes:
 
 ```text
-Casks/help-me-print.rb
+Formula/help-me-print.rb
 ```
 
-If the release does not contain a `.dmg`, Homebrew publishing now fails instead of writing an invalid cask with an empty `url`.
+The formula points at the GitHub tag source archive:
 
-Homebrew discoverability is driven mainly by the cask token, display name, and one-line description. Keep the token as `help-me-print`, the app name as `Help Me Print`, and use a duplex-focused `desc` so `brew search --desc` can match relevant printing terms.
+```text
+https://github.com/<owner>/<repo>/archive/refs/tags/vX.Y.Z.tar.gz
+```
+
+and declares Homebrew dependencies for `cmake` and `qt`.
+
+This is intentionally not a cask. The goal is to avoid shipping an unsigned downloaded `.app` that Gatekeeper will flag as damaged.
 
 Users install with:
 
 ```bash
-brew tap hromau/tap
-brew install --cask help-me-print
+brew install hromau/tap/help-me-print
 ```
 
 ## Winget
