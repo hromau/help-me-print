@@ -1,13 +1,18 @@
 #include "qt_printer_service.hpp"
 
 #include <QProcess>
+#include <QRegularExpression>
 #include <QStringList>
 
 namespace duplexprint::app {
 namespace {
 
 std::pair<std::string, std::string> split_make_model(const QString& name) {
-  const auto parts = name.simplified().split(' ', Qt::SkipEmptyParts);
+  auto normalized_name = name;
+  normalized_name.replace(QRegularExpression("[_\\-]+"), " ");
+  normalized_name = normalized_name.simplified();
+
+  const auto parts = normalized_name.split(' ', Qt::SkipEmptyParts);
   if (parts.isEmpty()) {
     return {"Unknown", name.toStdString()};
   }
@@ -15,7 +20,7 @@ std::pair<std::string, std::string> split_make_model(const QString& name) {
   const auto manufacturer = parts.first().toStdString();
   QStringList model_parts = parts;
   model_parts.removeFirst();
-  const auto model = model_parts.isEmpty() ? name.toStdString() : model_parts.join(' ').toStdString();
+  const auto model = model_parts.isEmpty() ? normalized_name.toStdString() : model_parts.join(' ').toStdString();
   return {manufacturer, model};
 }
 

@@ -190,6 +190,9 @@ void test_filesystem_profile_store() {
   expect_true(saved.has_value(), "filesystem profile store should return saved profile");
   expect_equal(store.list().size(), static_cast<std::size_t>(1), "filesystem profile store list size");
   expect_equal(saved->confidence, 98, "filesystem profile store confidence");
+
+  const auto saved_with_underscores = store.get("HP_Smart_Tank_580", "HP_Smart_Tank_580", "HP_Smart_Tank_580");
+  expect_true(saved_with_underscores.has_value(), "filesystem profile store should match normalized printer names");
 }
 
 void test_printer_profile_resolver() {

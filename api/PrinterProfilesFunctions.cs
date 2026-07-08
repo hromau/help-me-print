@@ -128,9 +128,40 @@ public sealed class PrinterProfilesFunctions
                     ProfileModel.HasSameProfileSettings(existing, entity))
                 .ToArray();
 
+            var hasConflictingPending = submissionTable
+                .Query<TableEntity>(stored => stored.PartitionKey == normalizedKey)
+                .Any(existing =>
+                    existing.RowKey != submissionId &&
+                    string.Equals(Convert.ToString(existing["status"]), "pending", StringComparison.OrdinalIgnoreCase) &&
+                    !ProfileModel.HasSameProfileSettings(existing, entity));
+
             await submissionTable.AddEntityAsync(entity);
 
             var identicalPendingVotes = matchingPending.Length + 1;
+            if (identicalPendingVotes == 1 && !hasConflictingPending)
+            {
+                var promoted = ProfileModel.PromoteSubmissionToCanonical(entity, votes: identicalPendingVotes, now);
+                await canonicalTable.UpsertEntityAsync(promoted, TableUpdateMode.Merge);
+
+                entity["status"] = "approved";
+                entity["approvedAt"] = now.ToString("O");
+                entity["promotedProfileKey"] = promoted.RowKey;
+                entity["updatedAt"] = now.ToString("O");
+                await submissionTable.UpdateEntityAsync(entity, entity.ETag, TableUpdateMode.Merge);
+
+                return new OkObjectResult(new
+                {
+                    submissionId,
+                    normalizedKey = promoted.RowKey,
+                    status = "approved",
+                    promoted = true,
+                    matchedCanonical = false,
+                    votes = identicalPendingVotes,
+                    approvalVoteThreshold,
+                    firstApproval = true
+                });
+            }
+
             if (identicalPendingVotes >= approvalVoteThreshold)
             {
                 var promoted = ProfileModel.PromoteSubmissionToCanonical(entity, votes: identicalPendingVotes, now);
@@ -162,13 +193,6 @@ public sealed class PrinterProfilesFunctions
                     approvalVoteThreshold
                 });
             }
-
-            var hasConflictingPending = submissionTable
-                .Query<TableEntity>(stored => stored.PartitionKey == normalizedKey)
-                .Any(existing =>
-                    existing.RowKey != submissionId &&
-                    string.Equals(Convert.ToString(existing["status"]), "pending", StringComparison.OrdinalIgnoreCase) &&
-                    !ProfileModel.HasSameProfileSettings(existing, entity));
 
             return new AcceptedResult("/api/profile-submissions/" + manufacturer + "/" + model, new
             {

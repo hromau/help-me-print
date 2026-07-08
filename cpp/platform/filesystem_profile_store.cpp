@@ -220,8 +220,10 @@ std::optional<PrinterProfile> FilesystemProfileStore::get(
     const std::string& printer_name) const {
   const auto profiles = read_profiles();
   const auto normalized_key = PrinterIdentity::normalize_key(manufacturer, model);
+  const auto normalized_printer_name = PrinterIdentity::normalize_label(printer_name);
   const auto it = std::find_if(profiles.begin(), profiles.end(), [&](const PrinterProfile& profile) {
     return profile.normalized_key == normalized_key ||
+        PrinterIdentity::normalize_label(profile.printer_name) == normalized_printer_name ||
         (profile.normalized_key.empty() && profile.printer_name == printer_name);
   });
   if (it == profiles.end()) {
