@@ -38,9 +38,13 @@ std::string normalize_token_stream(const std::string& value) {
 
 }  // namespace
 
+std::string PrinterIdentity::normalize_label(const std::string& value) {
+  return normalize_token_stream(value);
+}
+
 std::string PrinterIdentity::normalize_key(const std::string& manufacturer, const std::string& model) {
-  const auto normalized_manufacturer = normalize_token_stream(manufacturer);
-  const auto normalized_model = normalize_token_stream(model);
+  const auto normalized_manufacturer = normalize_label(manufacturer);
+  const auto normalized_model = normalize_label(model);
   if (normalized_manufacturer.empty()) {
     return normalized_model;
   }

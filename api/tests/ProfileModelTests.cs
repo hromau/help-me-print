@@ -195,4 +195,11 @@ public sealed class ProfileModelTests
         Assert.Equal(3, updated["votes"]);
         Assert.Equal("2026-06-16T00:00:00.0000000+00:00", updated["updatedAt"]);
     }
+
+    [Fact]
+    public void NormalizesUnderscoredDriverNamesIntoStableKeys()
+    {
+        Assert.Equal("hp smart tank 5100 series", ProfileModel.NormalizeManufacturer("HP_Smart_Tank_5100_series"));
+        Assert.Equal("hp smart tank 5100 series", ProfileModel.NormalizeModel("HP_Smart_Tank_5100_series"));
+    }
 }
