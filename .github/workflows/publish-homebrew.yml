@@ -1,6 +1,23 @@
 name: Publish Homebrew Formula
 
 on:
+  workflow_call:
+    inputs:
+      release_tag:
+        required: false
+        type: string
+      version:
+        required: false
+        type: string
+      source_url:
+        required: false
+        type: string
+      sha256:
+        required: false
+        type: string
+    secrets:
+      HOMEBREW_TAP_TOKEN:
+        required: false
   release:
     types:
       - published
@@ -101,23 +118,32 @@ jobs:
       - name: Write formula
         if: steps.config.outputs.enabled == 'true'
         run: |
+          set -euo pipefail
           mkdir -p tap/Formula
           cp packaging/homebrew/help-me-print.rb.template tap/Formula/help-me-print.rb
-          if [ -f tap/Casks/help-me-print.rb ]; then
+          if [ -d tap/Casks ]; then
             rm -f tap/Casks/help-me-print.rb
+            rmdir tap/Casks 2>/dev/null || true
           fi
           sed -i "s#__VERSION__#${{ steps.meta.outputs.version }}#g" tap/Formula/help-me-print.rb
           sed -i "s#__SOURCE_SHA256__#${{ steps.meta.outputs.sha256 }}#g" tap/Formula/help-me-print.rb
           sed -i "s#__SOURCE_URL__#${{ steps.meta.outputs.url }}#g" tap/Formula/help-me-print.rb
+      - name: Validate tap contents
+        if: steps.config.outputs.enabled == 'true'
+        run: |
+          set -euo pipefail
+          test -f tap/Formula/help-me-print.rb
+          if [ -e tap/Casks/help-me-print.rb ]; then
+            echo "Legacy Casks/help-me-print.rb is still present." >&2
+            exit 1
+          fi
       - name: Commit and push
         if: steps.config.outputs.enabled == 'true'
         working-directory: tap
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A Formula
-          if [ -d Casks ] || git ls-files --error-unmatch Casks/help-me-print.rb >/dev/null 2>&1; then
-            git add -A Casks
-          fi
+          git add -A .
           git commit -m "Update Help Me Print to ${{ steps.meta.outputs.version }}" || exit 0
           git push origin "${{ steps.tap.outputs.branch }}"

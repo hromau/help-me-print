@@ -7,6 +7,8 @@ This project publishes in stages:
 3. The GitHub release uploads per-platform validation metadata alongside installers.
 4. Optional publish workflows update Homebrew, Winget, and an APT repository when the required release input is safe to publish.
 
+The Homebrew publish step is called directly from `release.yml`. This is intentional: the GitHub Release is created by GitHub Actions, and GitHub does not start a second workflow run from that `release` event when it was created with the repository `GITHUB_TOKEN`.
+
 The release pipeline is intentionally native-first. Desktop distribution uses the C++/Qt application only.
 
 ## macOS signing and notarization
@@ -105,6 +107,12 @@ The workflow writes:
 
 ```text
 Formula/help-me-print.rb
+```
+
+and removes any legacy:
+
+```text
+Casks/help-me-print.rb
 ```
 
 The formula points at the GitHub tag source archive:
