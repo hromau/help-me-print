@@ -1,17 +1,21 @@
 #include "main_window.hpp"
 
+#include <QDragEnterEvent>
 #include <QComboBox>
 #include <QDateTime>
 #include <QDesktopServices>
 #include <QDialog>
 #include <QDialogButtonBox>
+#include <QDropEvent>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QFormLayout>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLayout>
 #include <QLineEdit>
 #include <QMessageBox>
+#include <QMimeData>
 #include <QPushButton>
 #include <QShowEvent>
 #include <QSizePolicy>
@@ -55,6 +59,19 @@ QString pass_summary(const core::PassPlan& pass) {
   return summary;
 }
 
+bool is_single_pdf_drop(const QMimeData* mime_data) {
+  if (mime_data == nullptr || !mime_data->hasUrls()) {
+    return false;
+  }
+
+  const auto urls = mime_data->urls();
+  if (urls.size() != 1 || !urls.front().isLocalFile()) {
+    return false;
+  }
+
+  return QFileInfo(urls.front().toLocalFile()).suffix().compare("pdf", Qt::CaseInsensitive) == 0;
+}
+
 }  // namespace
 
 MainWindow::MainWindow()
@@ -67,6 +84,7 @@ MainWindow::MainWindow()
 
 void MainWindow::build_ui() {
   setWindowTitle("Help Me Print");
+  setAcceptDrops(true);
 
   auto* central = new QWidget(this);
   central->setObjectName("root");
@@ -172,6 +190,7 @@ void MainWindow::build_ui() {
   save_training_button_->setIcon(style()->standardIcon(QStyle::SP_DialogApplyButton));
   first_pass_button_->setIcon(style()->standardIcon(QStyle::SP_FileDialogDetailedView));
   second_pass_button_->setIcon(style()->standardIcon(QStyle::SP_ArrowForward));
+  reset_button_->setIcon(style()->standardIcon(QStyle::SP_BrowserReload));
 
   refresh_button_->setIcon(style()->standardIcon(QStyle::SP_BrowserReload));
   refresh_button_->setToolTip("Refresh printers");
@@ -302,7 +321,7 @@ void MainWindow::build_ui() {
   connect(save_training_button_, &QPushButton::clicked, this, [this] { save_training(); });
   connect(first_pass_button_, &QPushButton::clicked, this, [this] { run_first_pass(); });
   connect(second_pass_button_, &QPushButton::clicked, this, [this] { run_second_pass(); });
-  connect(reset_button_, &QPushButton::clicked, this, [this] { reset_job(); });
+  connect(reset_button_, &QPushButton::clicked, this, [this] { handle_footer_action(); });
   connect(support_button_, &QPushButton::clicked, this, [this] { open_support_link(); });
   connect(printer_combo_, &QComboBox::currentIndexChanged, this, [this] { update_ui(); });
 }
@@ -349,16 +368,41 @@ void MainWindow::choose_pdf() {
     return;
   }
 
+  load_pdf(path);
+}
+
+void MainWindow::load_pdf(const QString& path) {
   try {
     document_ = document_service_.inspect_pdf(path);
     workflow_.reset();
+    calibration_workflow_.reset();
     second_pass_plan_.reset();
     stage_ = Stage::Setup;
-    set_status("");
+    set_status(QString("Loaded %1.").arg(QFileInfo(path).fileName()));
   } catch (const std::exception& error) {
     QMessageBox::critical(this, "PDF error", error.what());
   }
   update_ui();
+}
+
+void MainWindow::dragEnterEvent(QDragEnterEvent* event) {
+  if (is_single_pdf_drop(event->mimeData())) {
+    event->acceptProposedAction();
+    return;
+  }
+  event->ignore();
+}
+
+void MainWindow::dropEvent(QDropEvent* event) {
+  if (!is_single_pdf_drop(event->mimeData())) {
+    set_status("Drop a single PDF file.");
+    update_ui();
+    event->ignore();
+    return;
+  }
+
+  load_pdf(event->mimeData()->urls().front().toLocalFile());
+  event->acceptProposedAction();
 }
 
 std::optional<platform::ResolvedPrinter> MainWindow::selected_printer() const {
@@ -504,6 +548,14 @@ void MainWindow::run_second_pass() {
   update_ui();
 }
 
+void MainWindow::handle_footer_action() {
+  if (stage_ == Stage::AwaitingSecondPass) {
+    run_first_pass();
+    return;
+  }
+  reset_job();
+}
+
 void MainWindow::reset_job() {
   workflow_.reset();
   calibration_workflow_.reset();
@@ -573,6 +625,7 @@ void MainWindow::prompt_for_second_pass() {
   dialog.setInformativeText(
       "Reload the printed stack into the tray, then continue with the second pass.");
   auto* continue_button = dialog.addButton("Print second pass now", QMessageBox::AcceptRole);
+  dialog.addButton("Close", QMessageBox::RejectRole);
   dialog.exec();
 
   if (dialog.clickedButton() == continue_button) {
@@ -632,6 +685,10 @@ void MainWindow::update_ui() {
   first_pass_button_->setVisible(can_show_first_pass);
   second_pass_button_->setEnabled(workflow_.has_value() && awaiting_second_pass);
   second_pass_button_->setVisible(awaiting_second_pass);
+  reset_button_->setText(awaiting_second_pass ? "Print first side again" : "Start over");
+  reset_button_->setToolTip(awaiting_second_pass
+      ? "Send the first side to the printer again."
+      : "Clear the current workflow and start again.");
   action_card_->setVisible(has_primary_action);
   if (has_primary_action && action_card_->layout() != nullptr) {
     action_card_->setFixedHeight(action_card_->layout()->sizeHint().height());

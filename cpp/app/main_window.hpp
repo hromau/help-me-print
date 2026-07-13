@@ -16,9 +16,11 @@
 
 QT_BEGIN_NAMESPACE
 class QComboBox;
+class QDragEnterEvent;
 class QFrame;
 class QLabel;
 class QLineEdit;
+class QDropEvent;
 class QPushButton;
 class QToolButton;
 class QWidget;
@@ -42,11 +44,13 @@ class MainWindow : public QMainWindow {
   void build_ui();
   void refresh_printers(bool announce = false);
   void choose_pdf();
+  void load_pdf(const QString& path);
   void run_calibration();
   void save_training();
   void complete_training(const QString& observed_top_page);
   void run_first_pass();
   void run_second_pass();
+  void handle_footer_action();
   void reset_job();
   void open_support_link();
   void prompt_for_calibration_result();
@@ -54,6 +58,8 @@ class MainWindow : public QMainWindow {
   void update_ui();
   void set_status(const QString& message);
   void sync_window_size();
+  void dragEnterEvent(QDragEnterEvent* event) override;
+  void dropEvent(QDropEvent* event) override;
   void showEvent(QShowEvent* event) override;
 
   [[nodiscard]] std::optional<platform::ResolvedPrinter> selected_printer() const;
