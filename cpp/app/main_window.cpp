@@ -157,6 +157,8 @@ void MainWindow::build_ui() {
 
   document_label_ = new QLabel("No PDF selected", central);
   document_label_->setProperty("muted", true);
+  document_label_->setMinimumWidth(0);
+  document_label_->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
   printer_status_label_ = new QLabel("No printer selected", central);
   printer_status_label_->setProperty("status", "good");
   status_label_ = new QLabel("", central);
@@ -166,6 +168,10 @@ void MainWindow::build_ui() {
 
   printer_combo_ = new QComboBox(central);
   printer_combo_->setMinimumHeight(44);
+  printer_combo_->setMinimumWidth(0);
+  printer_combo_->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
+  printer_combo_->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+  printer_combo_->setMinimumContentsLength(1);
 
   choose_pdf_button_ = new QPushButton("Choose PDF", central);
   refresh_button_ = new QToolButton(central);
@@ -647,9 +653,11 @@ void MainWindow::set_status(const QString& message) {
 }
 
 void MainWindow::update_ui() {
-  document_label_->setText(document_
+  const auto document_text = document_
       ? QString("%1 (%2 pages)").arg(to_qstring(document_->file_name)).arg(document_->page_count)
-      : "No PDF selected");
+      : "No PDF selected";
+  document_label_->setText(document_text);
+  document_label_->setToolTip(document_ ? document_text : QString());
 
   const auto printer = selected_printer();
   if (printer) {
@@ -658,8 +666,10 @@ void MainWindow::update_ui() {
       status += " from " + source_label(*printer->printer.resolved_profile_source);
     }
     printer_status_label_->setText(status);
+    printer_combo_->setToolTip(printer_combo_->currentText());
   } else {
     printer_status_label_->setText("No printer selected");
+    printer_combo_->setToolTip(QString());
   }
 
   const bool has_printer = printer.has_value();
